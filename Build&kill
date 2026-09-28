@@ -1,7 +1,21 @@
---// DRIVE + NOCLIP + FUEL + CIRCLE
---// GUI styled after the supplied Pastebin GUI
---// Circle uses car physics/velocity, NOT HumanoidRootPart CFrame teleporting
---// Default circle radius: 28
+--========================================================
+-- BUILD&KILL ZOMBIE
+-- AUTO MONEY FARM + BOSS FARM
+--
+-- AUTO MONEY FARM:
+--   • Auto drive
+--   • Noclip
+--   • Fuel respawn cycle
+--   • Turbo
+--
+-- BOSS FARM:
+--   • Physics-based circle driving
+--   • Does NOT teleport HumanoidRootPart
+--   • Uses car AssemblyLinearVelocity
+--   • Adjustable radius
+--
+-- Default Radius = 28
+--========================================================
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -12,21 +26,8 @@ local lp = Players.LocalPlayer
 local playerGui = lp:WaitForChild("PlayerGui")
 
 --========================================================
--- CONFIG
+-- SETTINGS
 --========================================================
-
-local COLORS = {
-    panel = Color3.fromRGB(53, 174, 230),
-    panelStroke = Color3.fromRGB(20, 90, 130),
-    titleBar = Color3.fromRGB(75, 190, 235),
-
-    on = Color3.fromRGB(90, 210, 70),
-    off = Color3.fromRGB(220, 70, 70),
-    click = Color3.fromRGB(255, 170, 0),
-
-    text = Color3.fromRGB(255, 255, 255),
-    dark = Color3.fromRGB(30, 70, 95),
-}
 
 local circleCenter = Vector3.new(
     -1624.734,
@@ -36,85 +37,22 @@ local circleCenter = Vector3.new(
 
 local circleRadius = 28
 
--- Look ahead around the circle.
--- Larger = smoother steering but cuts the circle more.
+-- Circle look-ahead.
+-- Higher value = smoother but wider steering.
 local circleLookAhead = 0.35
 
 --========================================================
 -- STATE
 --========================================================
 
-local farmOn = false
-local circling = false
+local autoMoneyFarm = false
+local bossFarm = false
 
 local cycleBusy = false
 local serverTop = nil
 
 local lastRespawnTry = 0
-local lastDbg = 0
-
 local circleAngle = 0
-
---========================================================
--- HELPERS
---========================================================
-
-local function addCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 12)
-    c.Parent = parent
-    return c
-end
-
-local function addStroke(parent, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = color or COLORS.panelStroke
-    s.Thickness = thickness or 3
-    s.Parent = parent
-    return s
-end
-
-local function addTextStroke(label)
-    local s = Instance.new("UIStroke")
-    s.Color = Color3.fromRGB(20, 60, 90)
-    s.Thickness = 3
-    s.Parent = label
-end
-
-local function makeLabel(parent, text, size, position)
-    local label = Instance.new("TextLabel")
-    label.BackgroundTransparency = 1
-    label.Size = size
-    label.Position = position
-    label.Text = text
-    label.TextColor3 = COLORS.text
-    label.Font = Enum.Font.FredokaOne
-    label.TextSize = 15
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = parent
-
-    addTextStroke(label)
-
-    return label
-end
-
-local function makeButton(parent, text, size, position)
-    local button = Instance.new("TextButton")
-    button.Size = size
-    button.Position = position
-    button.BackgroundColor3 = COLORS.off
-    button.Text = text
-    button.TextColor3 = COLORS.text
-    button.Font = Enum.Font.FredokaOne
-    button.TextSize = 15
-    button.BorderSizePixel = 0
-    button.Parent = parent
-
-    addCorner(button, 10)
-    addStroke(button, COLORS.panelStroke, 3)
-
-    return button
-end
 
 --========================================================
 -- PACKETS
@@ -172,39 +110,47 @@ local function applyNoclip()
 end
 
 --========================================================
--- FUEL / RESPAWN CYCLE
+-- FUEL / CAR RESPAWN CYCLE
 --========================================================
 
 task.spawn(function()
     while true do
         task.wait(0.5)
 
-        if farmOn then
+        if autoMoneyFarm then
             pcall(function()
+
                 local car = getCar()
 
                 if car then
-                    local fuel = car:GetAttribute("Fuel")
 
-                    if typeof(fuel) == "number" then
-                        if fuel < 4 and not cycleBusy then
-                            cycleBusy = true
+                    local fuel =
+                        car:GetAttribute("Fuel")
 
-                            Packets.DespawnCar:Fire()
+                    if typeof(fuel) == "number"
+                        and fuel < 4
+                        and not cycleBusy then
 
-                            task.wait(2)
+                        cycleBusy = true
 
-                            Packets.SpawnCar:Fire()
+                        -- Despawn
+                        Packets.DespawnCar:Fire()
 
-                            task.wait(4)
+                        task.wait(2)
 
-                            cycleBusy = false
-                        end
+                        -- Spawn
+                        Packets.SpawnCar:Fire()
+
+                        task.wait(4)
+
+                        cycleBusy = false
                     end
 
                 elseif not cycleBusy then
+
                     if tick() - lastRespawnTry > 12 then
                         lastRespawnTry = tick()
+
                         Packets.SpawnCar:Fire()
                     end
                 end
@@ -221,14 +167,18 @@ task.spawn(function()
     while true do
         task.wait(0.3)
 
-        if farmOn then
+        if autoMoneyFarm then
             pcall(function()
+
                 Packets.SetTurbo:Fire(true)
 
                 local car = getCar()
 
                 if car then
-                    car:SetAttribute("NitroFuel", 1)
+                    car:SetAttribute(
+                        "NitroFuel",
+                        1
+                    )
                 end
             end)
         end
@@ -240,31 +190,44 @@ end)
 --========================================================
 
 local function getGroundPosition(position, car)
+
     local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
+
+    params.FilterType =
+        Enum.RaycastFilterType.Exclude
 
     local ignore = {
         car
     }
 
     if lp.Character then
-        table.insert(ignore, lp.Character)
+        table.insert(
+            ignore,
+            lp.Character
+        )
     end
 
-    params.FilterDescendantsInstances = ignore
+    params.FilterDescendantsInstances =
+        ignore
+
     params.IgnoreWater = false
 
-    local origin = position + Vector3.new(0, 45, 0)
-    local direction = Vector3.new(0, -250, 0)
+    local origin =
+        position + Vector3.new(0, 45, 0)
 
-    local hit = workspace:Raycast(
-        origin,
-        direction,
-        params
-    )
+    local direction =
+        Vector3.new(0, -250, 0)
+
+    local hit =
+        workspace:Raycast(
+            origin,
+            direction,
+            params
+        )
 
     if hit and hit.Normal.Y > 0.5 then
-        return hit.Position + Vector3.new(0, 4, 0)
+        return hit.Position
+            + Vector3.new(0, 4, 0)
     end
 
     return position
@@ -275,6 +238,7 @@ end
 --========================================================
 
 local function driveForward(car)
+
     local ch = car.PrimaryPart
 
     if not ch then
@@ -283,46 +247,55 @@ local function driveForward(car)
 
     local pos = ch.Position
 
-    -- Same forward-style ground detection as the original
-    local forwardPoint = pos + Vector3.new(35, 0, 0)
+    -- Look forward.
+    local forwardPoint =
+        pos + Vector3.new(35, 0, 0)
 
-    local target = getGroundPosition(
-        forwardPoint,
-        car
-    )
+    local target =
+        getGroundPosition(
+            forwardPoint,
+            car
+        )
 
-    local to = target - pos
+    local to =
+        target - pos
 
-    local vel = ch.AssemblyLinearVelocity
+    local vel =
+        ch.AssemblyLinearVelocity
 
-    local h = Vector3.new(
-        vel.X,
-        0,
-        vel.Z
-    )
+    local h =
+        Vector3.new(
+            vel.X,
+            0,
+            vel.Z
+        )
 
-    local hd = Vector3.new(
-        to.X,
-        0,
-        to.Z
-    )
-
-    local top = serverTop or 60
-
-    local SPEED = math.min(
-        top * 1.3,
-        135
-    )
+    local hd =
+        Vector3.new(
+            to.X,
+            0,
+            to.Z
+        )
 
     if hd.Magnitude < 0.1 then
         return
     end
 
-    local vertical = math.clamp(
-        to.Y * 2,
-        -40,
-        25
-    )
+    local top =
+        serverTop or 60
+
+    local SPEED =
+        math.min(
+            top * 1.3,
+            135
+        )
+
+    local vertical =
+        math.clamp(
+            to.Y * 2,
+            -40,
+            25
+        )
 
     if h.Magnitude > 2
         and h.Unit:Dot(hd.Unit) < 0.3 then
@@ -348,39 +321,44 @@ local function driveForward(car)
 end
 
 --========================================================
--- CIRCLE PHYSICS DRIVE
+-- PHYSICS CIRCLE DRIVE
 --========================================================
 
 local function driveCircle(car, dt)
+
     local ch = car.PrimaryPart
 
     if not ch then
         return
     end
 
-    local pos = ch.Position
+    local pos =
+        ch.Position
 
-    local top = serverTop or 60
+    local top =
+        serverTop or 60
 
-    -- Keep roughly the same driving speed as Auto Drive.
-    local SPEED = math.min(
-        top * 1.3,
-        135
-    )
+    local SPEED =
+        math.min(
+            top * 1.3,
+            135
+        )
 
-    -- Convert linear speed into angular speed.
-    -- This means changing R doesn't make the car
-    -- instantly teleport around the circle.
-    local radius = math.max(
-        circleRadius,
-        1
-    )
+    local radius =
+        math.max(
+            circleRadius,
+            1
+        )
 
-    local angularSpeed = SPEED / radius
+    -- Convert linear speed into
+    -- angular speed.
+    local angularSpeed =
+        SPEED / radius
 
-    circleAngle += angularSpeed * dt
+    circleAngle +=
+        angularSpeed * dt
 
-    -- Look ahead on the circle.
+    -- Look ahead around the circle.
     local targetAngle =
         circleAngle + circleLookAhead
 
@@ -392,52 +370,61 @@ local function driveCircle(car, dt)
             math.sin(targetAngle) * radius
         )
 
-    -- Find the actual ground underneath
-    -- the target point.
-    local target = getGroundPosition(
-        targetXZ,
-        car
-    )
+    -- Find ground below target.
+    local target =
+        getGroundPosition(
+            targetXZ,
+            car
+        )
 
-    local to = target - pos
+    local to =
+        target - pos
 
-    local hd = Vector3.new(
-        to.X,
-        0,
-        to.Z
-    )
+    local hd =
+        Vector3.new(
+            to.X,
+            0,
+            to.Z
+        )
 
     if hd.Magnitude < 0.1 then
         return
     end
 
-    local vel = ch.AssemblyLinearVelocity
+    local vel =
+        ch.AssemblyLinearVelocity
 
-    local h = Vector3.new(
-        vel.X,
-        0,
-        vel.Z
-    )
+    local h =
+        Vector3.new(
+            vel.X,
+            0,
+            vel.Z
+        )
 
-    local vertical = math.clamp(
-        to.Y * 2,
-        -40,
-        25
-    )
+    local vertical =
+        math.clamp(
+            to.Y * 2,
+            -40,
+            25
+        )
 
-    -- Physics steering.
-    -- No CFrame movement is used here.
     local desired =
         hd.Unit * SPEED
 
+    -- Smooth steering instead of
+    -- teleporting around the circle.
     if h.Magnitude > 2 then
+
         local alignment =
             h.Unit:Dot(hd.Unit)
 
         if alignment < 0.3 then
+
             desired =
                 h * 0.85
+
         else
+
             desired =
                 h:Lerp(
                     desired,
@@ -455,38 +442,46 @@ local function driveCircle(car, dt)
 end
 
 --========================================================
--- MAIN VEHICLE PHYSICS
+-- VEHICLE PHYSICS LOOP
 --========================================================
 
 RunService.PostSimulation:Connect(function(dt)
 
-    -- Circle can work independently.
-    if circling then
+    -- Boss Farm has priority over
+    -- normal forward driving.
+    if bossFarm then
 
         local car = getCar()
 
-        if car and car.PrimaryPart then
-
-            if farmOn then
-                applyNoclip()
-            end
-
-            if not serverTop then
-                serverTop =
-                    car:GetAttribute("TopSpeed")
-            end
-
-            driveCircle(
-                car,
-                dt
-            )
+        if not car then
+            return
         end
+
+        if not car.PrimaryPart then
+            return
+        end
+
+        if not serverTop then
+            serverTop =
+                car:GetAttribute("TopSpeed")
+        end
+
+        -- If Auto Money Farm is also enabled,
+        -- keep noclip active.
+        if autoMoneyFarm then
+            applyNoclip()
+        end
+
+        driveCircle(
+            car,
+            dt
+        )
 
         return
     end
 
-    -- Normal auto drive
-    if not farmOn then
+    -- Normal Auto Money Farm.
+    if not autoMoneyFarm then
         return
     end
 
@@ -511,282 +506,519 @@ RunService.PostSimulation:Connect(function(dt)
 end)
 
 --========================================================
--- STATUS DEBUG
+-- GUI COLORS
 --========================================================
 
-task.spawn(function()
-    while true do
-        task.wait(5)
+local COLOR_BG =
+    Color3.fromRGB(
+        20,
+        20,
+        22
+    )
 
-        if farmOn or circling then
-            pcall(function()
+local COLOR_PANEL =
+    Color3.fromRGB(
+        28,
+        28,
+        31
+    )
 
-                local car = getCar()
+local COLOR_BLUE =
+    Color3.fromRGB(
+        55,
+        145,
+        220
+    )
 
-                if car then
+local COLOR_GREEN =
+    Color3.fromRGB(
+        70,
+        190,
+        90
+    )
 
-                    local fuel =
-                        car:GetAttribute("Fuel")
+local COLOR_RED =
+    Color3.fromRGB(
+        205,
+        65,
+        65
+    )
 
-                    local cash =
-                        lp:GetAttribute("Cash")
-
-                    if circling then
-                        statusLabel.Text =
-                            "CIRCLE: ON | R: "
-                            .. math.floor(circleRadius)
-                            .. "\nFuel: "
-                            .. tostring(fuel or "?")
-                            .. " | Cash: "
-                            .. tostring(cash or "?")
-
-                    elseif farmOn then
-                        statusLabel.Text =
-                            "DRIVE: ON\nFuel: "
-                            .. tostring(fuel or "?")
-                            .. " | Cash: "
-                            .. tostring(cash or "?")
-                    end
-
-                else
-
-                    if circling then
-                        statusLabel.Text =
-                            "CIRCLE: ON | Waiting for car..."
-
-                    elseif farmOn then
-                        statusLabel.Text =
-                            "DRIVE: ON | Waiting for car..."
-                    end
-
-                end
-            end)
-        end
-    end
-end)
+local COLOR_TEXT =
+    Color3.fromRGB(
+        255,
+        255,
+        255
+    )
 
 --========================================================
--- GUI
+-- GUI HELPERS
 --========================================================
 
-local old = playerGui:FindFirstChild("DriveCircleGUI")
+local function corner(obj, radius)
 
-if old then
-    old:Destroy()
+    local c =
+        Instance.new("UICorner")
+
+    c.CornerRadius =
+        UDim.new(
+            0,
+            radius or 8
+        )
+
+    c.Parent = obj
+
+    return c
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DriveCircleGUI"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.DisplayOrder = 999999999
-screenGui.Parent = playerGui
-
---========================================================
--- OPEN ICON
---========================================================
-
-local openIcon = Instance.new("TextButton")
-openIcon.Name = "OpenIcon"
-openIcon.Size = UDim2.new(0, 50, 0, 50)
-openIcon.Position = UDim2.new(0, 20, 0.5, 0)
-openIcon.BackgroundColor3 = COLORS.panel
-openIcon.Text = "🚗"
-openIcon.TextSize = 24
-openIcon.Visible = false
-openIcon.Active = true
-openIcon.Draggable = true
-openIcon.Parent = screenGui
-
-addCorner(openIcon, 12)
-addStroke(openIcon, COLORS.panelStroke, 3)
-
---========================================================
--- MAIN FRAME
---========================================================
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 300, 0, 310)
-mainFrame.Position = UDim2.new(
-    0.5,
-    -150,
-    0.5,
-    -155
+local function stroke(
+    obj,
+    color,
+    thickness
 )
-mainFrame.BackgroundColor3 = COLORS.panel
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.ClipsDescendants = false
-mainFrame.Parent = screenGui
 
-addCorner(mainFrame, 16)
-addStroke(mainFrame, COLORS.panelStroke, 4)
+    local s =
+        Instance.new("UIStroke")
+
+    s.Color =
+        color or Color3.fromRGB(
+            70,
+            70,
+            75
+        )
+
+    s.Thickness =
+        thickness or 2
+
+    s.Parent = obj
+
+    return s
+end
+
+--========================================================
+-- CREATE GUI
+--========================================================
+
+local oldGui =
+    playerGui:FindFirstChild(
+        "BuildKillZombie"
+    )
+
+if oldGui then
+    oldGui:Destroy()
+end
+
+local gui =
+    Instance.new("ScreenGui")
+
+gui.Name =
+    "BuildKillZombie"
+
+gui.ResetOnSpawn =
+    false
+
+gui.IgnoreGuiInset =
+    true
+
+gui.DisplayOrder =
+    999999
+
+gui.Parent =
+    playerGui
+
+--========================================================
+-- MAIN
+--========================================================
+
+local main =
+    Instance.new("Frame")
+
+main.Name =
+    "Main"
+
+main.Size =
+    UDim2.new(
+        0,
+        300,
+        0,
+        235
+    )
+
+main.Position =
+    UDim2.new(
+        0.5,
+        -150,
+        0.5,
+        -117
+    )
+
+main.BackgroundColor3 =
+    COLOR_BG
+
+main.BorderSizePixel =
+    0
+
+main.Active =
+    true
+
+main.Draggable =
+    true
+
+main.Parent =
+    gui
+
+corner(main, 12)
+stroke(
+    main,
+    Color3.fromRGB(
+        55,
+        55,
+        60
+    ),
+    2
+)
 
 --========================================================
 -- TITLE
 --========================================================
 
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(0, 220, 0, 40)
-titleBar.Position = UDim2.new(
-    0.5,
-    -110,
-    0,
-    -20
-)
-titleBar.BackgroundColor3 = COLORS.titleBar
-titleBar.BorderSizePixel = 0
-titleBar.ZIndex = 2
-titleBar.Parent = mainFrame
+local title =
+    Instance.new("TextLabel")
 
-addCorner(titleBar, 12)
-addStroke(titleBar, COLORS.panelStroke, 3)
+title.BackgroundTransparency =
+    1
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.BackgroundTransparency = 1
-titleLabel.Size = UDim2.new(1, 0, 1, 0)
-titleLabel.Text = "🚗 DRIVE FARM"
-titleLabel.TextColor3 = COLORS.text
-titleLabel.Font = Enum.Font.FredokaOne
-titleLabel.TextSize = 18
-titleLabel.ZIndex = 2
-titleLabel.Parent = titleBar
+title.Size =
+    UDim2.new(
+        1,
+        -45,
+        0,
+        42
+    )
 
-addTextStroke(titleLabel)
+title.Position =
+    UDim2.new(
+        0,
+        15,
+        0,
+        0
+    )
+
+title.Text =
+    "🚗 BUILD&KILL ZOMBIE"
+
+title.TextColor3 =
+    COLOR_TEXT
+
+title.Font =
+    Enum.Font.GothamBold
+
+title.TextSize =
+    17
+
+title.TextXAlignment =
+    Enum.TextXAlignment.Left
+
+title.Parent =
+    main
 
 --========================================================
 -- MINIMIZE
 --========================================================
 
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 36, 0, 36)
-closeButton.Position = UDim2.new(
-    1,
-    -10,
-    0,
-    -18
+local minimize =
+    Instance.new("TextButton")
+
+minimize.Size =
+    UDim2.new(
+        0,
+        35,
+        0,
+        35
+    )
+
+minimize.Position =
+    UDim2.new(
+        1,
+        -40,
+        0,
+        3
+    )
+
+minimize.BackgroundColor3 =
+    COLOR_PANEL
+
+minimize.Text =
+    "−"
+
+minimize.TextColor3 =
+    COLOR_TEXT
+
+minimize.Font =
+    Enum.Font.GothamBold
+
+minimize.TextSize =
+    22
+
+minimize.BorderSizePixel =
+    0
+
+minimize.Parent =
+    main
+
+corner(minimize, 8)
+
+--========================================================
+-- OPEN BUTTON
+--========================================================
+
+local openButton =
+    Instance.new("TextButton")
+
+openButton.Size =
+    UDim2.new(
+        0,
+        48,
+        0,
+        48
+    )
+
+openButton.Position =
+    UDim2.new(
+        0,
+        20,
+        0.5,
+        -24
+    )
+
+openButton.BackgroundColor3 =
+    COLOR_BLUE
+
+openButton.Text =
+    "🚗"
+
+openButton.TextSize =
+    22
+
+openButton.TextColor3 =
+    COLOR_TEXT
+
+openButton.Visible =
+    false
+
+openButton.Active =
+    true
+
+openButton.Draggable =
+    true
+
+openButton.Parent =
+    gui
+
+corner(openButton, 12)
+
+stroke(
+    openButton,
+    Color3.fromRGB(
+        90,
+        170,
+        230
+    ),
+    2
 )
-closeButton.AnchorPoint = Vector2.new(1, 0)
-closeButton.BackgroundColor3 =
-    Color3.fromRGB(220, 50, 50)
-closeButton.Text = "−"
-closeButton.TextColor3 = COLORS.text
-closeButton.Font = Enum.Font.FredokaOne
-closeButton.TextSize = 24
-closeButton.ZIndex = 3
-closeButton.Parent = mainFrame
 
-addCorner(closeButton, 10)
-addStroke(closeButton, COLORS.panelStroke, 3)
+minimize.MouseButton1Click:Connect(function()
 
-closeButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    openIcon.Visible = true
+    main.Visible =
+        false
+
+    openButton.Visible =
+        true
 end)
 
-openIcon.MouseButton1Click:Connect(function()
-    mainFrame.Visible = true
-    openIcon.Visible = false
+openButton.MouseButton1Click:Connect(function()
+
+    main.Visible =
+        true
+
+    openButton.Visible =
+        false
 end)
 
 --========================================================
--- STATUS
+-- AUTO MONEY FARM BUTTON
 --========================================================
 
-statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "Status"
-statusLabel.BackgroundTransparency = 1
-statusLabel.Size = UDim2.new(1, -40, 0, 48)
-statusLabel.Position = UDim2.new(0, 20, 0, 30)
-statusLabel.Text = "DRIVE: OFF\nCIRCLE: OFF | R: 28"
-statusLabel.TextColor3 = COLORS.text
-statusLabel.Font = Enum.Font.FredokaOne
-statusLabel.TextSize = 13
-statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel.Parent = mainFrame
+local autoButton =
+    Instance.new("TextButton")
 
-addTextStroke(statusLabel)
+autoButton.Size =
+    UDim2.new(
+        1,
+        -30,
+        0,
+        48
+    )
 
---========================================================
--- DRIVE BUTTON
---========================================================
+autoButton.Position =
+    UDim2.new(
+        0,
+        15,
+        0,
+        55
+    )
 
-local driveLabel = makeLabel(
-    mainFrame,
-    "Drive + Noclip + Fuel",
-    UDim2.new(0, 170, 0, 40),
-    UDim2.new(0, 20, 0, 82)
+autoButton.BackgroundColor3 =
+    COLOR_PANEL
+
+autoButton.Text =
+    "AUTO MONEY FARM   [OFF]"
+
+autoButton.TextColor3 =
+    COLOR_TEXT
+
+autoButton.Font =
+    Enum.Font.GothamBold
+
+autoButton.TextSize =
+    14
+
+autoButton.BorderSizePixel =
+    0
+
+autoButton.Parent =
+    main
+
+corner(autoButton, 9)
+
+stroke(
+    autoButton,
+    Color3.fromRGB(
+        65,
+        65,
+        70
+    ),
+    1
 )
 
-local driveButton = makeButton(
-    mainFrame,
-    "OFF",
-    UDim2.new(0, 80, 0, 35),
-    UDim2.new(1, -20, 0, 84)
-)
+local function updateAutoButton()
 
-driveButton.AnchorPoint =
-    Vector2.new(1, 0)
+    if autoMoneyFarm then
 
-driveButton.MouseButton1Click:Connect(function()
+        autoButton.Text =
+            "AUTO MONEY FARM   [ON]"
 
-    farmOn = not farmOn
-
-    if farmOn then
-        driveButton.Text = "ON"
-        driveButton.BackgroundColor3 = COLORS.on
-
-        statusLabel.Text =
-            "DRIVE: ON\nNoclip + Fuel active"
+        autoButton.BackgroundColor3 =
+            COLOR_GREEN
 
     else
-        driveButton.Text = "OFF"
-        driveButton.BackgroundColor3 = COLORS.off
 
-        statusLabel.Text =
-            "DRIVE: OFF\nCIRCLE: "
-            .. (circling and "ON" or "OFF")
-            .. " | R: "
-            .. math.floor(circleRadius)
+        autoButton.Text =
+            "AUTO MONEY FARM   [OFF]"
+
+        autoButton.BackgroundColor3 =
+            COLOR_PANEL
     end
+end
+
+autoButton.MouseButton1Click:Connect(function()
+
+    autoMoneyFarm =
+        not autoMoneyFarm
+
+    updateAutoButton()
 end)
 
 --========================================================
--- CIRCLE BUTTON
+-- BOSS FARM BUTTON
 --========================================================
 
-local circleLabel = makeLabel(
-    mainFrame,
-    "Circle Drive",
-    UDim2.new(0, 170, 0, 40),
-    UDim2.new(0, 20, 0, 127)
+local bossButton =
+    Instance.new("TextButton")
+
+bossButton.Size =
+    UDim2.new(
+        1,
+        -30,
+        0,
+        48
+    )
+
+bossButton.Position =
+    UDim2.new(
+        0,
+        15,
+        0,
+        111
+    )
+
+bossButton.BackgroundColor3 =
+    COLOR_PANEL
+
+bossButton.Text =
+    "BOSS FARM   [OFF]"
+
+bossButton.TextColor3 =
+    COLOR_TEXT
+
+bossButton.Font =
+    Enum.Font.GothamBold
+
+bossButton.TextSize =
+    14
+
+bossButton.BorderSizePixel =
+    0
+
+bossButton.Parent =
+    main
+
+corner(bossButton, 9)
+
+stroke(
+    bossButton,
+    Color3.fromRGB(
+        65,
+        65,
+        70
+    ),
+    1
 )
 
-local circleButton = makeButton(
-    mainFrame,
-    "OFF",
-    UDim2.new(0, 80, 0, 35),
-    UDim2.new(1, -20, 0, 129)
-)
+local function updateBossButton()
 
-circleButton.AnchorPoint =
-    Vector2.new(1, 0)
+    if bossFarm then
 
-circleButton.MouseButton1Click:Connect(function()
+        bossButton.Text =
+            "BOSS FARM   [ON]"
 
-    circling = not circling
+        bossButton.BackgroundColor3 =
+            COLOR_GREEN
 
-    if circling then
+    else
 
-        -- Start from the car's current position
-        -- instead of instantly jumping to angle 0.
-        local car = getCar()
+        bossButton.Text =
+            "BOSS FARM   [OFF]"
+
+        bossButton.BackgroundColor3 =
+            COLOR_PANEL
+    end
+end
+
+bossButton.MouseButton1Click:Connect(function()
+
+    bossFarm =
+        not bossFarm
+
+    if bossFarm then
+
+        -- Start the circle from the
+        -- car's current angle.
+        local car =
+            getCar()
 
         if car and car.PrimaryPart then
+
             local offset =
                 car.PrimaryPart.Position
                 - circleCenter
@@ -801,65 +1033,149 @@ circleButton.MouseButton1Click:Connect(function()
                     )
             end
         end
-
-        circleButton.Text = "ON"
-        circleButton.BackgroundColor3 =
-            COLORS.on
-
-        statusLabel.Text =
-            "CIRCLE: ON\nRadius: "
-            .. math.floor(circleRadius)
-
-    else
-
-        circleButton.Text = "OFF"
-        circleButton.BackgroundColor3 =
-            COLORS.off
-
-        statusLabel.Text =
-            "CIRCLE: OFF\nRadius: "
-            .. math.floor(circleRadius)
     end
+
+    updateBossButton()
 end)
 
 --========================================================
--- RADIUS LABEL
+-- RADIUS SECTION
 --========================================================
 
-local radiusLabel = makeLabel(
-    mainFrame,
-    "Radius",
-    UDim2.new(0, 80, 0, 35),
-    UDim2.new(0, 20, 0, 178)
+local radiusText =
+    Instance.new("TextLabel")
+
+radiusText.BackgroundTransparency =
+    1
+
+radiusText.Size =
+    UDim2.new(
+        0,
+        100,
+        0,
+        38
+    )
+
+radiusText.Position =
+    UDim2.new(
+        0,
+        15,
+        0,
+        171
+    )
+
+radiusText.Text =
+    "Radius"
+
+radiusText.TextColor3 =
+    COLOR_TEXT
+
+radiusText.Font =
+    Enum.Font.GothamBold
+
+radiusText.TextSize =
+    14
+
+radiusText.TextXAlignment =
+    Enum.TextXAlignment.Left
+
+radiusText.Parent =
+    main
+
+local radiusValue =
+    Instance.new("TextLabel")
+
+radiusValue.BackgroundTransparency =
+    1
+
+radiusValue.Size =
+    UDim2.new(
+        0,
+        45,
+        0,
+        38
+    )
+
+radiusValue.Position =
+    UDim2.new(
+        0,
+        90,
+        0,
+        171
+    )
+
+radiusValue.Text =
+    "28"
+
+radiusValue.TextColor3 =
+    COLOR_TEXT
+
+radiusValue.Font =
+    Enum.Font.GothamBold
+
+radiusValue.TextSize =
+    16
+
+radiusValue.Parent =
+    main
+
+--========================================================
+-- R -
+--========================================================
+
+local minusButton =
+    Instance.new("TextButton")
+
+minusButton.Size =
+    UDim2.new(
+        0,
+        55,
+        0,
+        35
+    )
+
+minusButton.Position =
+    UDim2.new(
+        1,
+        -125,
+        0,
+        172
+    )
+
+minusButton.BackgroundColor3 =
+    COLOR_PANEL
+
+minusButton.Text =
+    "R −"
+
+minusButton.TextColor3 =
+    COLOR_TEXT
+
+minusButton.Font =
+    Enum.Font.GothamBold
+
+minusButton.TextSize =
+    14
+
+minusButton.BorderSizePixel =
+    0
+
+minusButton.Parent =
+    main
+
+corner(minusButton, 8)
+
+stroke(
+    minusButton,
+    Color3.fromRGB(
+        65,
+        65,
+        70
+    ),
+    1
 )
 
-local radiusValue = Instance.new("TextLabel")
-radiusValue.BackgroundTransparency = 1
-radiusValue.Size = UDim2.new(0, 70, 0, 35)
-radiusValue.Position = UDim2.new(0, 105, 0, 178)
-radiusValue.Text = "28"
-radiusValue.TextColor3 = COLORS.text
-radiusValue.Font = Enum.Font.FredokaOne
-radiusValue.TextSize = 17
-radiusValue.Parent = mainFrame
-
-addTextStroke(radiusValue)
-
---========================================================
--- R - BUTTON
---========================================================
-
-local radiusMinus = makeButton(
-    mainFrame,
-    "R −",
-    UDim2.new(0, 70, 0, 35),
-    UDim2.new(1, -95, 0, 178)
-)
-
-radiusMinus.AnchorPoint =
-    Vector2.new(1, 0)
-
-radiusMinus.MouseButton1Click:Connect(function()
+minusButton.MouseButton1Click:Connect(function()
 
     circleRadius =
         math.max(
@@ -868,78 +1184,77 @@ radiusMinus.MouseButton1Click:Connect(function()
         )
 
     radiusValue.Text =
-        tostring(math.floor(circleRadius))
-
-    if circling then
-        statusLabel.Text =
-            "CIRCLE: ON\nRadius: "
-            .. math.floor(circleRadius)
-    end
+        tostring(
+            math.floor(circleRadius)
+        )
 end)
 
 --========================================================
--- R + BUTTON
+-- R +
 --========================================================
 
-local radiusPlus = makeButton(
-    mainFrame,
-    "R +",
-    UDim2.new(0, 70, 0, 35),
-    UDim2.new(1, -20, 0, 178)
+local plusButton =
+    Instance.new("TextButton")
+
+plusButton.Size =
+    UDim2.new(
+        0,
+        55,
+        0,
+        35
+    )
+
+plusButton.Position =
+    UDim2.new(
+        1,
+        -65,
+        0,
+        172
+    )
+
+plusButton.BackgroundColor3 =
+    COLOR_PANEL
+
+plusButton.Text =
+    "R +"
+
+plusButton.TextColor3 =
+    COLOR_TEXT
+
+plusButton.Font =
+    Enum.Font.GothamBold
+
+plusButton.TextSize =
+    14
+
+plusButton.BorderSizePixel =
+    0
+
+plusButton.Parent =
+    main
+
+corner(plusButton, 8)
+
+stroke(
+    plusButton,
+    Color3.fromRGB(
+        65,
+        65,
+        70
+    ),
+    1
 )
 
-radiusPlus.AnchorPoint =
-    Vector2.new(1, 0)
-
-radiusPlus.MouseButton1Click:Connect(function()
+plusButton.MouseButton1Click:Connect(function()
 
     circleRadius =
         circleRadius + 1
 
     radiusValue.Text =
-        tostring(math.floor(circleRadius))
-
-    if circling then
-        statusLabel.Text =
-            "CIRCLE: ON\nRadius: "
-            .. math.floor(circleRadius)
-    end
+        tostring(
+            math.floor(circleRadius)
+        )
 end)
-
---========================================================
--- CENTER INFO
---========================================================
-
-local centerLabel = Instance.new("TextLabel")
-centerLabel.BackgroundTransparency = 1
-centerLabel.Size = UDim2.new(1, -40, 0, 38)
-centerLabel.Position = UDim2.new(0, 20, 0, 225)
-centerLabel.Text =
-    "Circle Center\n-1624.734, 15.484, -656.456"
-centerLabel.TextColor3 = COLORS.text
-centerLabel.Font = Enum.Font.FredokaOne
-centerLabel.TextSize = 11
-centerLabel.TextXAlignment = Enum.TextXAlignment.Left
-centerLabel.Parent = mainFrame
-
-addTextStroke(centerLabel)
-
---========================================================
--- KEYBIND T
---========================================================
-
-local keyLabel = Instance.new("TextLabel")
-keyLabel.BackgroundTransparency = 1
-keyLabel.Size = UDim2.new(1, -40, 0, 30)
-keyLabel.Position = UDim2.new(0, 20, 0, 267)
-keyLabel.Text = "Press T = Drive + Noclip + Fuel"
-keyLabel.TextColor3 = COLORS.text
-keyLabel.Font = Enum.Font.FredokaOne
-keyLabel.TextSize = 12
-keyLabel.TextXAlignment = Enum.TextXAlignment.Center
-keyLabel.Parent = mainFrame
-
-addTextStroke(keyLabel)
 
 --========================================================
 -- T KEY
@@ -954,35 +1269,28 @@ UserInputService.InputBegan:Connect(function(
         return
     end
 
-    if input.KeyCode == Enum.KeyCode.T then
+    if input.KeyCode ==
+        Enum.KeyCode.T then
 
-        farmOn = not farmOn
+        autoMoneyFarm =
+            not autoMoneyFarm
 
-        if farmOn then
-
-            driveButton.Text = "ON"
-            driveButton.BackgroundColor3 =
-                COLORS.on
-
-            statusLabel.Text =
-                "DRIVE: ON\nNoclip + Fuel active"
-
-        else
-
-            driveButton.Text = "OFF"
-            driveButton.BackgroundColor3 =
-                COLORS.off
-
-            statusLabel.Text =
-                "DRIVE: OFF\nCIRCLE: "
-                .. (circling and "ON" or "OFF")
-                .. " | R: "
-                .. math.floor(circleRadius)
-        end
+        updateAutoButton()
     end
 end)
 
+--========================================================
+-- INITIAL STATE
+--========================================================
+
+updateAutoButton()
+updateBossButton()
+
 print(
-    "[DriveFarm] Loaded | Circle Radius:",
+    "[BUILD&KILL ZOMBIE] Loaded"
+)
+
+print(
+    "[BUILD&KILL ZOMBIE] Radius:",
     circleRadius
 )
