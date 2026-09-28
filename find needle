@@ -1,0 +1,782 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local reportRunning = false
+local antiAFK = false
+
+-- =========================================================
+-- CONFIG
+-- =========================================================
+
+local COLORS = {
+	panel = Color3.fromRGB(53, 174, 230),
+	panelStroke = Color3.fromRGB(20, 90, 130),
+	titleBar = Color3.fromRGB(75, 190, 235),
+
+	on = Color3.fromRGB(90, 210, 70),
+	off = Color3.fromRGB(220, 70, 70),
+	clickBtn = Color3.fromRGB(255, 170, 0),
+
+	text = Color3.fromRGB(255, 255, 255),
+	closeButton = Color3.fromRGB(220, 50, 50),
+
+	dropdown = Color3.fromRGB(40, 100, 135),
+	selected = Color3.fromRGB(70, 180, 80),
+}
+
+-- =========================================================
+-- HELPERS
+-- =========================================================
+
+local function addCorner(parent, radius)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 12)
+	corner.Parent = parent
+	return corner
+end
+
+local function addStroke(parent, color, thickness)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color or COLORS.panelStroke
+	stroke.Thickness = thickness or 3
+	stroke.Parent = parent
+	return stroke
+end
+
+local function addTextStroke(label)
+	local s = Instance.new("UIStroke")
+	s.Color = Color3.fromRGB(20, 60, 90)
+	s.Thickness = 3
+	s.Parent = label
+end
+
+-- =========================================================
+-- MAIN GUI
+-- =========================================================
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "OpenMinigameMenu"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999999999
+
+local success, coreGui = pcall(function()
+	return game:GetService("CoreGui")
+end)
+
+if success and coreGui then
+	screenGui.Parent = coreGui
+else
+	screenGui.Parent = playerGui
+end
+
+-- =========================================================
+-- OPEN ICON
+-- =========================================================
+
+local openIcon = Instance.new("TextButton")
+openIcon.Name = "OpenIcon"
+openIcon.Size = UDim2.new(0, 50, 0, 50)
+openIcon.Position = UDim2.new(0, 20, 0.5, 0)
+openIcon.BackgroundColor3 = COLORS.panel
+openIcon.Text = "💎"
+openIcon.TextSize = 25
+openIcon.Visible = false
+openIcon.Active = true
+openIcon.Draggable = true
+openIcon.Parent = screenGui
+
+addCorner(openIcon, 12)
+addStroke(openIcon, COLORS.panelStroke, 3)
+
+-- =========================================================
+-- MAIN FRAME
+-- =========================================================
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 250)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+mainFrame.BackgroundColor3 = COLORS.panel
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.ClipsDescendants = false
+mainFrame.Parent = screenGui
+
+addCorner(mainFrame, 16)
+addStroke(mainFrame, COLORS.panelStroke, 4)
+
+-- =========================================================
+-- TITLE
+-- =========================================================
+
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(0, 200, 0, 40)
+titleBar.Position = UDim2.new(0.5, -100, 0, -20)
+titleBar.BackgroundColor3 = COLORS.titleBar
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 2
+titleBar.Parent = mainFrame
+
+addCorner(titleBar, 12)
+addStroke(titleBar, COLORS.panelStroke, 3)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.BackgroundTransparency = 1
+titleLabel.Size = UDim2.new(1, 0, 1, 0)
+titleLabel.Text = "open minigame first"
+titleLabel.TextColor3 = COLORS.text
+titleLabel.Font = Enum.Font.FredokaOne
+titleLabel.TextSize = 18
+titleLabel.ZIndex = 2
+titleLabel.Parent = titleBar
+
+addTextStroke(titleLabel)
+
+-- =========================================================
+-- GEMS DISPLAY
+-- =========================================================
+
+local gemsDisplay = Instance.new("TextLabel")
+gemsDisplay.Size = UDim2.new(1, 0, 0, 30)
+gemsDisplay.Position = UDim2.new(0, 0, 0, 30)
+gemsDisplay.BackgroundTransparency = 1
+gemsDisplay.TextColor3 = Color3.fromRGB(150, 255, 150)
+gemsDisplay.Font = Enum.Font.FredokaOne
+gemsDisplay.TextSize = 18
+gemsDisplay.Text = "💎 Gems: Loading..."
+gemsDisplay.Parent = mainFrame
+
+addTextStroke(gemsDisplay)
+
+-- =========================================================
+-- MINIMIZE
+-- =========================================================
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 36, 0, 36)
+closeButton.Position = UDim2.new(1, -10, 0, -18)
+closeButton.AnchorPoint = Vector2.new(1, 0)
+closeButton.BackgroundColor3 = COLORS.closeButton
+closeButton.Text = "−"
+closeButton.TextColor3 = COLORS.text
+closeButton.Font = Enum.Font.FredokaOne
+closeButton.TextSize = 24
+closeButton.ZIndex = 3
+closeButton.Parent = mainFrame
+
+addCorner(closeButton, 10)
+addStroke(closeButton, COLORS.panelStroke, 3)
+
+closeButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+	openIcon.Visible = true
+end)
+
+openIcon.MouseButton1Click:Connect(function()
+	mainFrame.Visible = true
+	openIcon.Visible = false
+end)
+
+-- =========================================================
+-- GEMS DUP BUTTON
+-- =========================================================
+
+local gemsState = false
+
+local gemsLabel = Instance.new("TextLabel")
+gemsLabel.Name = "GemsDupLabel"
+gemsLabel.BackgroundTransparency = 1
+gemsLabel.Size = UDim2.new(0, 140, 0, 40)
+gemsLabel.Position = UDim2.new(0, 20, 0, 70)
+gemsLabel.Text = "gems dup"
+gemsLabel.TextColor3 = COLORS.text
+gemsLabel.Font = Enum.Font.FredokaOne
+gemsLabel.TextSize = 16
+gemsLabel.TextXAlignment = Enum.TextXAlignment.Left
+gemsLabel.Parent = mainFrame
+
+addTextStroke(gemsLabel)
+
+local gemsButton = Instance.new("TextButton")
+gemsButton.Name = "GemsDupBtn"
+gemsButton.Size = UDim2.new(0, 80, 0, 35)
+gemsButton.Position = UDim2.new(1, -20, 0, 70)
+gemsButton.AnchorPoint = Vector2.new(1, 0)
+gemsButton.Text = "Off"
+gemsButton.TextColor3 = COLORS.text
+gemsButton.Font = Enum.Font.FredokaOne
+gemsButton.TextSize = 16
+gemsButton.BackgroundColor3 = COLORS.off
+gemsButton.Parent = mainFrame
+
+addCorner(gemsButton, 10)
+addStroke(gemsButton, COLORS.panelStroke, 3)
+
+-- =========================================================
+-- EXACT WORKING GEM FARM BACKEND
+-- =========================================================
+
+local AutoFarmGems = false
+local TotalFarmedGems = 0
+
+local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade")
+
+local ArcadeReport = ArcadeFolder:WaitForChild("ArcadeReport")
+local ArcadeSession = ArcadeFolder:WaitForChild("ArcadeSession")
+
+-- Exact prompt finder from working script
+
+local gemPrompt = nil
+
+local function findGemPrompt()
+
+	-- Same first search
+	local machine = workspace:FindFirstChild(
+		"Arcade Machine",
+		true
+	)
+
+	if machine then
+		gemPrompt = machine:FindFirstChild(
+			"PlayPrompt",
+			true
+		)
+	end
+
+	-- Same fallback search
+	if not gemPrompt then
+
+		for _, object in ipairs(workspace:GetDescendants()) do
+
+			if object:IsA("ProximityPrompt")
+				and object.Name == "PlayPrompt" then
+
+				gemPrompt = object
+				break
+
+			end
+
+		end
+
+	end
+
+	-- Same prompt settings
+	if gemPrompt and gemPrompt.Parent then
+
+		gemPrompt.HoldDuration = 0
+		gemPrompt.MaxActivationDistance = math.huge
+		gemPrompt.RequiresLineOfSight = false
+		gemPrompt.ClickablePrompt = true
+
+		return gemPrompt
+
+	end
+
+	return nil
+end
+
+-- =========================================================
+-- SAME FARM LOOP
+-- =========================================================
+
+local function gemFarmLoop()
+
+	task.spawn(function()
+
+		while screenGui
+			and screenGui.Parent do
+
+			if AutoFarmGems then
+
+				pcall(function()
+
+					local prompt = findGemPrompt()
+
+					if prompt then
+
+						if fireproximityprompt then
+
+							fireproximityprompt(
+								prompt,
+								0
+							)
+
+						else
+
+							prompt:InputHoldBegin()
+							prompt:InputHoldEnd()
+
+						end
+
+					end
+
+					-- EXACT WORKING REMOTE
+					ArcadeReport:FireServer(
+						"kills",
+						40,
+						2
+					)
+
+					TotalFarmedGems =
+						TotalFarmedGems + 1
+
+					-- EXACT WORKING REMOTE
+					ArcadeSession:FireServer(
+						"quit",
+						1,
+						6240
+					)
+
+				end)
+
+				-- Same as original
+				task.wait()
+
+			else
+
+				-- Same as original
+				task.wait(0.2)
+
+			end
+
+		end
+
+	end)
+
+end
+
+-- =========================================================
+-- START THE SAME 4 LOOPS
+-- =========================================================
+
+for i = 1, 4 do
+	gemFarmLoop()
+end
+
+-- =========================================================
+-- GEMS BUTTON
+-- =========================================================
+
+gemsButton.MouseButton1Click:Connect(function()
+
+	gemsState = not gemsState
+
+	gemsButton.Text =
+		gemsState and "On" or "Off"
+
+	gemsButton.BackgroundColor3 =
+		gemsState and COLORS.on or COLORS.off
+
+	-- This controls the SAME backend
+	AutoFarmGems = gemsState
+	reportRunning = gemsState
+
+end)
+
+-- =========================================================
+-- ANTI AFK
+-- =========================================================
+
+local antiLabel = Instance.new("TextLabel")
+antiLabel.Name = "AntiAFKLabel"
+antiLabel.BackgroundTransparency = 1
+antiLabel.Size = UDim2.new(0, 140, 0, 40)
+antiLabel.Position = UDim2.new(0, 20, 0, 115)
+antiLabel.Text = "Anti-AFK"
+antiLabel.TextColor3 = COLORS.text
+antiLabel.Font = Enum.Font.FredokaOne
+antiLabel.TextSize = 16
+antiLabel.TextXAlignment = Enum.TextXAlignment.Left
+antiLabel.Parent = mainFrame
+
+addTextStroke(antiLabel)
+
+local antiButton = Instance.new("TextButton")
+antiButton.Name = "AntiAFKBtn"
+antiButton.Size = UDim2.new(0, 80, 0, 35)
+antiButton.Position = UDim2.new(1, -20, 0, 115)
+antiButton.AnchorPoint = Vector2.new(1, 0)
+antiButton.Text = "Off"
+antiButton.TextColor3 = COLORS.text
+antiButton.Font = Enum.Font.FredokaOne
+antiButton.TextSize = 16
+antiButton.BackgroundColor3 = COLORS.off
+antiButton.Parent = mainFrame
+
+addCorner(antiButton, 10)
+addStroke(antiButton, COLORS.panelStroke, 3)
+
+antiButton.MouseButton1Click:Connect(function()
+
+	antiAFK = not antiAFK
+
+	antiButton.Text =
+		antiAFK and "On" or "Off"
+
+	antiButton.BackgroundColor3 =
+		antiAFK and COLORS.on or COLORS.off
+
+end)
+
+-- =========================================================
+-- CLASS SELECTOR
+-- =========================================================
+
+local classes = {
+	"Starter",
+	"Pack Mule",
+	"Hay Merchant",
+	"Forkmaster",
+	"Demolitionist",
+	"Prospector",
+	"Drone Specialist",
+	"Hoover",
+	"Ultimate Farmer",
+	"The Chosen One"
+}
+
+local selected = {}
+local running = false
+local dropdownOpen = false
+
+-- Class label
+
+local classLabel = Instance.new("TextLabel")
+classLabel.Name = "RollClassLabel"
+classLabel.BackgroundTransparency = 1
+classLabel.Size = UDim2.new(0, 140, 0, 40)
+classLabel.Position = UDim2.new(0, 20, 0, 160)
+classLabel.Text = "Roll Class"
+classLabel.TextColor3 = COLORS.text
+classLabel.Font = Enum.Font.FredokaOne
+classLabel.TextSize = 16
+classLabel.TextXAlignment = Enum.TextXAlignment.Left
+classLabel.Parent = mainFrame
+
+addTextStroke(classLabel)
+
+-- Selected count
+
+local selectedLabel = Instance.new("TextLabel")
+selectedLabel.Name = "SelectedCount"
+selectedLabel.BackgroundTransparency = 1
+selectedLabel.Size = UDim2.new(0, 140, 0, 20)
+selectedLabel.Position = UDim2.new(0, 20, 0, 187)
+selectedLabel.Text = "Selected: 0"
+selectedLabel.TextColor3 = COLORS.text
+selectedLabel.Font = Enum.Font.FredokaOne
+selectedLabel.TextSize = 12
+selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+selectedLabel.Parent = mainFrame
+
+addTextStroke(selectedLabel)
+
+-- Select button
+
+local selectButton = Instance.new("TextButton")
+selectButton.Name = "SelectClasses"
+selectButton.Size = UDim2.new(0, 120, 0, 35)
+selectButton.Position = UDim2.new(1, -20, 0, 160)
+selectButton.AnchorPoint = Vector2.new(1, 0)
+selectButton.BackgroundColor3 = COLORS.dropdown
+selectButton.Text = "Classes ▼"
+selectButton.TextColor3 = COLORS.text
+selectButton.Font = Enum.Font.FredokaOne
+selectButton.TextSize = 14
+selectButton.ZIndex = 10
+selectButton.Parent = mainFrame
+
+addCorner(selectButton, 10)
+addStroke(selectButton, COLORS.panelStroke, 3)
+
+-- =========================================================
+-- DROPDOWN
+-- =========================================================
+
+local dropdown = Instance.new("ScrollingFrame")
+dropdown.Name = "ClassDropdown"
+dropdown.Size = UDim2.new(0, 260, 0, 170)
+dropdown.Position = UDim2.new(0.5, -130, 0, 205)
+dropdown.BackgroundColor3 = Color3.fromRGB(30, 70, 95)
+dropdown.BorderSizePixel = 0
+dropdown.ScrollBarThickness = 5
+dropdown.CanvasSize = UDim2.fromOffset(0, #classes * 38)
+dropdown.Visible = false
+dropdown.ZIndex = 50
+dropdown.Parent = mainFrame
+
+addCorner(dropdown, 12)
+addStroke(dropdown, COLORS.panelStroke, 3)
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 2)
+layout.Parent = dropdown
+
+-- =========================================================
+-- CLASS BUTTONS
+-- =========================================================
+
+for _, className in ipairs(classes) do
+
+	local button = Instance.new("TextButton")
+
+	button.Size = UDim2.new(1, -10, 0, 35)
+	button.BackgroundColor3 =
+		Color3.fromRGB(50, 100, 125)
+
+	button.Text = "☐ " .. className
+	button.TextColor3 = COLORS.text
+	button.TextSize = 14
+	button.Font = Enum.Font.FredokaOne
+	button.ZIndex = 51
+	button.Parent = dropdown
+
+	addCorner(button, 8)
+
+	button.MouseButton1Click:Connect(function()
+
+		if selected[className] then
+
+			selected[className] = nil
+
+			button.Text = "☐ " .. className
+			button.BackgroundColor3 =
+				Color3.fromRGB(50, 100, 125)
+
+		else
+
+			selected[className] = true
+
+			button.Text = "☑ " .. className
+			button.BackgroundColor3 =
+				COLORS.selected
+
+		end
+
+		local count = 0
+
+		for _ in pairs(selected) do
+			count += 1
+		end
+
+		selectedLabel.Text =
+			"Selected: " .. count
+
+	end)
+
+end
+
+-- =========================================================
+-- ROLL BUTTON
+-- =========================================================
+
+local rollButton = Instance.new("TextButton")
+rollButton.Name = "RollClassBtn"
+rollButton.Size = UDim2.new(0, 80, 0, 35)
+rollButton.Position = UDim2.new(1, -20, 0, 205)
+rollButton.AnchorPoint = Vector2.new(1, 0)
+rollButton.BackgroundColor3 = COLORS.off
+rollButton.Text = "OFF"
+rollButton.TextColor3 = COLORS.text
+rollButton.Font = Enum.Font.FredokaOne
+rollButton.TextSize = 15
+rollButton.ZIndex = 5
+rollButton.Parent = mainFrame
+
+addCorner(rollButton, 10)
+addStroke(rollButton, COLORS.panelStroke, 3)
+
+-- =========================================================
+-- DROPDOWN OPEN/CLOSE
+-- =========================================================
+
+selectButton.MouseButton1Click:Connect(function()
+
+	dropdownOpen = not dropdownOpen
+
+	if dropdownOpen then
+
+		dropdown.Visible = true
+		selectButton.Text = "Classes ▲"
+
+	else
+
+		dropdown.Visible = false
+		selectButton.Text = "Classes ▼"
+
+	end
+
+end)
+
+-- =========================================================
+-- CLASS ROLL LOOP
+-- =========================================================
+
+task.spawn(function()
+
+	while screenGui.Parent do
+
+		task.wait(0.1)
+
+		if running then
+
+			local Event = ReplicatedStorage
+				:WaitForChild("ClassSystem")
+				:WaitForChild("RollClass")
+
+			local success, result = pcall(function()
+				return Event:InvokeServer()
+			end)
+
+			if success and type(result) == "table" then
+
+				local rolledClass =
+					result.className
+
+				print(
+					"Rolled:",
+					rolledClass
+				)
+
+				if selected[rolledClass] then
+
+					running = false
+
+					rollButton.Text = "FOUND"
+
+					rollButton.BackgroundColor3 =
+						COLORS.selected
+
+					print(
+						"Found selected class:",
+						rolledClass
+					)
+
+				end
+
+			end
+
+		end
+
+	end
+
+end)
+
+-- =========================================================
+-- ROLL ON/OFF
+-- =========================================================
+
+rollButton.MouseButton1Click:Connect(function()
+
+	if running then
+
+		running = false
+
+		rollButton.Text = "OFF"
+		rollButton.BackgroundColor3 =
+			COLORS.off
+
+		return
+
+	end
+
+	local count = 0
+
+	for _ in pairs(selected) do
+		count += 1
+	end
+
+	if count == 0 then
+
+		rollButton.Text = "SELECT"
+
+		rollButton.BackgroundColor3 =
+			COLORS.clickBtn
+
+		task.delay(1, function()
+
+			if not running then
+
+				rollButton.Text = "OFF"
+
+				rollButton.BackgroundColor3 =
+					COLORS.off
+
+			end
+
+		end)
+
+		return
+
+	end
+
+	running = true
+
+	rollButton.Text = "ON"
+
+	rollButton.BackgroundColor3 =
+		COLORS.on
+
+end)
+
+-- =========================================================
+-- GEMS COUNTER
+-- =========================================================
+
+task.spawn(function()
+
+	local statsUI =
+		playerGui:WaitForChild("PlayerStatsUI")
+
+	local gemFrame =
+		statsUI
+		:WaitForChild("Frame")
+		:WaitForChild("GemFrame")
+
+	local gemLabel =
+		gemFrame:WaitForChild("GemLabel")
+
+	while screenGui.Parent do
+
+		gemsDisplay.Text =
+			"💎 Gems: " .. gemLabel.Text
+
+		task.wait(0.2)
+
+	end
+
+end)
+
+-- =========================================================
+-- ANTI AFK
+-- =========================================================
+
+player.Idled:Connect(function()
+
+	if antiAFK then
+
+		VirtualUser:Button2Down(
+			Vector2.new(0, 0),
+			workspace.CurrentCamera.CFrame
+		)
+
+		task.wait(1)
+
+		VirtualUser:Button2Up(
+			Vector2.new(0, 0),
+			workspace.CurrentCamera.CFrame
+		)
+
+	end
+
+end)
