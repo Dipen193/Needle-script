@@ -2,6 +2,10 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
@@ -79,13 +83,13 @@ end
 -- ===== ScreenGui =====
 local playerGui = player:WaitForChild("PlayerGui")
 local old = playerGui:FindFirstChild("ScriptHub")
-if old then old:Destroy() end -- prevents duplicate GUIs stacking if this script runs more than once
+if old then old:Destroy() end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptHub"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
-gui.DisplayOrder = 999 -- keep this GUI above other GUIs in the game
+gui.DisplayOrder = 999 
 gui.Parent = playerGui
 
 local main = frame(gui, BG, UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(640, 420))
@@ -405,51 +409,84 @@ end
 local homePage, homeCard = makePage("Home", "Home", "Gems and class tools.")
 local gemsDisplay = label(homeCard, "Gems: Loading...", 16, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(260, 28), Enum.Font.GothamBold)
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-local AutoFarmGems = false
-local TotalFarmedGems = 0
-local gemsBusy = false
+-- ==========================================================
+-- SUPER HYPER GEMS FARM LOGIC (vlRomeolv's Gem Farmer V6.5)
+-- ==========================================================
+local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade", 5)
+local ArcadeReport = ArcadeFolder and ArcadeFolder:WaitForChild("ArcadeReport", 5)
+local ArcadeSession = ArcadeFolder and ArcadeFolder:WaitForChild("ArcadeSession", 5)
 
-local function gemFarmOnce()
-    if gemsBusy then return end
-    gemsBusy = true
-    task.spawn(function()
-        pcall(function()
-            local arcade = ReplicatedStorage:FindFirstChild("Arcade")
-            local report = arcade and arcade:FindFirstChild("ArcadeReport")
-            local session = arcade and arcade:FindFirstChild("ArcadeSession")
-            local machine = workspace:FindFirstChild("Arcade Machine", true)
-            local prompt = machine and machine:FindFirstChild("PlayPrompt", true)
-            if not prompt then
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") and obj.Name == "PlayPrompt" then prompt = obj break end
-                end
-            end
-            if prompt then
-                prompt.HoldDuration = 0
-                prompt.MaxActivationDistance = math.huge
-                prompt.RequiresLineOfSight = false
-                if fireproximityprompt then fireproximityprompt(prompt, 0) else prompt:InputHoldBegin(); prompt:InputHoldEnd() end
-            end
-            if report and report:IsA("RemoteEvent") then report:FireServer("kills", 40, 2) end
-            if session and session:IsA("RemoteEvent") then session:FireServer("quit", 1, 6240) end
-            TotalFarmedGems += 1
-        end)
-        gemsBusy = false
-    end)
-end
+pcall(function()
+    local ArcadeConfig = require(ArcadeFolder:WaitForChild("ArcadeConfig"))
+    ArcadeConfig.Machine.CameraFlyTime = 0
+end)
 
-task.spawn(function()
-    while gui.Parent do
-        if AutoFarmGems then gemFarmOnce() end
-        task.wait(0.1)
+local superHyperGemsFlags = { AutoFarmGems = false, TotalFarmedGems = 0 }
+
+RunService.RenderStepped:Connect(function()
+    if superHyperGemsFlags.AutoFarmGems then
+        player:SetAttribute("ArcadePlaying", nil)
+        player:SetAttribute("NeedleInputLocked", nil)
+        local arcadeUi = player:WaitForChild("PlayerGui"):FindFirstChild("ArcadeScreen")
+        if arcadeUi and arcadeUi.Enabled then
+            arcadeUi.Enabled = false
+        end
     end
 end)
 
-makeToggle(homeCard, "Gems Dup", 2, function(on) AutoFarmGems = on end)
+local cachedPrompt = nil
+local function getPlayPrompt()
+    if cachedPrompt and cachedPrompt.Parent then return cachedPrompt end
+    local machine = workspace:FindFirstChild("Arcade Machine", true)
+    if machine then cachedPrompt = machine:FindFirstChild("PlayPrompt", true) end
+    if not cachedPrompt then
+        for _, prompt in ipairs(workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") and prompt.Name == "PlayPrompt" then
+                cachedPrompt = prompt
+                break
+            end
+        end
+    end
+    if cachedPrompt then
+        cachedPrompt.HoldDuration = 0
+        cachedPrompt.MaxActivationDistance = math.huge
+        cachedPrompt.RequiresLineOfSight = false
+        cachedPrompt.ClickablePrompt = true
+    end
+    return cachedPrompt
+end
+
+local function startWorker()
+    task.spawn(function()
+        while gui and gui.Parent do
+            if superHyperGemsFlags.AutoFarmGems then
+                pcall(function()
+                    local prompt = getPlayPrompt()
+                    if prompt then
+                        if fireproximityprompt then
+                            fireproximityprompt(prompt, 0)
+                        else
+                            prompt:InputHoldBegin()
+                            prompt:InputHoldEnd()
+                        end
+                    end
+                    if ArcadeReport then ArcadeReport:FireServer("kills", 40, 2) end
+                    superHyperGemsFlags.TotalFarmedGems += 624
+                    if ArcadeSession then ArcadeSession:FireServer("quit", 1, 6240) end
+                end)
+                task.wait()
+            else
+                task.wait(0.2)
+            end
+        end
+    end)
+end
+
+-- Launch 4 parallel concurrent workers
+for _ = 1, 4 do startWorker() end
+
+makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on) superHyperGemsFlags.AutoFarmGems = on end)
+-- ==========================================================
 
 local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
 local selectedClasses = {}
@@ -467,14 +504,13 @@ classButton.Size = UDim2.fromOffset(190, 36)
 classButton.Parent = homeCard
 corner(classButton, 8)
 
--- Refactored Class Popup window matching Main GUI Design
+-- Class Popup window
 local classPopup = frame(homePage, CARD, UDim2.fromOffset(10, 62), UDim2.fromOffset(416, 265))
 classPopup.Visible = false
 classPopup.ZIndex = 20
 corner(classPopup, 10)
 stroke(classPopup, RED, 1)
 
--- Popup Header
 local popupHeader = frame(classPopup, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 40))
 popupHeader.BackgroundTransparency = 1
 popupHeader.ZIndex = 21
@@ -482,7 +518,6 @@ popupHeader.ZIndex = 21
 local popupTitle = label(popupHeader, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 8), UDim2.fromOffset(200, 24), Enum.Font.GothamBold)
 popupTitle.ZIndex = 22
 
--- Popup Close Button
 local popupClose = Instance.new("TextButton")
 popupClose.BackgroundTransparency = 1
 popupClose.Text = "X"
@@ -494,14 +529,11 @@ popupClose.Position = UDim2.new(1, -10, 0, 8)
 popupClose.Size = UDim2.fromOffset(24, 24)
 popupClose.ZIndex = 22
 popupClose.Parent = popupHeader
-popupClose.MouseButton1Click:Connect(function()
-    classPopup.Visible = false
-end)
+popupClose.MouseButton1Click:Connect(function() classPopup.Visible = false end)
 
 local popupDivider = frame(classPopup, LINE, UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 1))
 popupDivider.ZIndex = 21
 
--- Scrolling Frame
 local classList = Instance.new("ScrollingFrame")
 classList.BackgroundTransparency = 1
 classList.BorderSizePixel = 0
@@ -520,7 +552,6 @@ classLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     classList.CanvasSize = UDim2.fromOffset(0, classLayout.AbsoluteContentSize.Y)
 end)
 
--- Bottom Action Buttons inside Popup
 local clearClasses = Instance.new("TextButton")
 clearClasses.AutoButtonColor = false
 clearClasses.BackgroundColor3 = OFF
@@ -546,9 +577,7 @@ closePopupBtn.Size = UDim2.fromOffset(100, 30)
 closePopupBtn.ZIndex = 22
 closePopupBtn.Parent = classPopup
 corner(closePopupBtn, 6)
-closePopupBtn.MouseButton1Click:Connect(function()
-    classPopup.Visible = false
-end)
+closePopupBtn.MouseButton1Click:Connect(function() classPopup.Visible = false end)
 
 local function updateClassCount()
     local n = 0
@@ -629,7 +658,6 @@ rollButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Fast Auto Gems Farm Execute Button
 local fastGemsBtn = Instance.new("TextButton")
 fastGemsBtn.AutoButtonColor = false
 fastGemsBtn.BackgroundColor3 = OFF
@@ -864,14 +892,93 @@ for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
     corner(tBtn, 8)
 end
 
--- ===== Misc / Anti-AFK + GUI Size =====
+-- ===== Misc / Anti-AFK + GUI Size + Remove GUI =====
 local settingsPage, settingsCard = makePage("Misc", "Misc", "General settings and AFK protection.")
-makeSlider(settingsCard, "GUI Size", 12, 50, 150, 100, function(v)
+
+local lagFixed = false
+makeToggle(settingsCard, "Fix Lag", 1, function(on)
+    if on and not lagFixed then
+        lagFixed = true
+        pcall(function() setfpscap(60) end)
+        pcall(function()
+            local L = game:GetService("Lighting")
+            L.GlobalShadows = false
+            L.Technology = Enum.Technology.Compatibility
+            L.FogEnd = 1000000
+            L.Brightness = 0
+            L.ClockTime = 12
+            L.GeographicLatitude = 0
+            for _,v in pairs(L:GetChildren()) do
+                if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+                    if v:IsA("Sky") then v.StarCount = 0 else v:Destroy() end
+                    pcall(function() v.Enabled = false end)
+                end
+            end
+        
+            local T = workspace:FindFirstChildOfClass("Terrain")
+            if T then
+                T.WaterWaveSize = 0 T.WaterWaveSpeed = 0
+                T.WaterReflectance = 0 T.WaterTransparency = 1
+                pcall(function() T.Decoration = false end)
+            end
+        
+            local function clear(v)
+                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam")
+                or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+                    v.Enabled = false v:Destroy()
+                elseif v:IsA("Decal") or v:IsA("Texture") then
+                    v.Transparency = 1 v:Destroy()
+                elseif v:IsA("BasePart") then
+                    v.CastShadow = false
+                    v.Reflectance = 0
+                    v.Material = Enum.Material.SmoothPlastic
+                elseif v:IsA("MeshPart") then
+                    v.RenderFidelity = Enum.RenderFidelity.Performance
+                    v.CastShadow = false
+                elseif v:IsA("Accessory") and not v.Parent:IsA("Tool") then
+                    pcall(function()
+                        if game.Players:GetPlayerFromCharacter(v.Parent) ~= game.Players.LocalPlayer then
+                            v:Destroy()
+                        end
+                    end)
+                end
+            end
+            for _,v in pairs(game:GetDescendants()) do pcall(clear,v) end
+            game.DescendantAdded:Connect(function(v) task.wait(0.1) pcall(clear,v) end)
+        
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        end)
+        print("FIX LAG MANH ON")
+    end
+end)
+
+makeSlider(settingsCard, "GUI Size", 52, 50, 150, 100, function(v)
     userGuiScale = v / 100
     updateScale()
 end)
-label(settingsCard, "Anti-AFK is always ON.", 14, WHITE, UDim2.fromOffset(16, 82), UDim2.fromOffset(260, 24), Enum.Font.GothamMedium)
-label(settingsCard, "Prevents the game from idling you out.", 12, GRAY, UDim2.fromOffset(16, 106), UDim2.fromOffset(340, 22), Enum.Font.Gotham)
+
+label(settingsCard, "Anti-AFK is always ON.", 14, WHITE, UDim2.fromOffset(16, 102), UDim2.fromOffset(260, 24), Enum.Font.GothamMedium)
+label(settingsCard, "Prevents the game from idling you out.", 12, GRAY, UDim2.fromOffset(16, 126), UDim2.fromOffset(340, 22), Enum.Font.Gotham)
+
+local removeGuiBtn = Instance.new("TextButton")
+removeGuiBtn.AutoButtonColor = false
+removeGuiBtn.BackgroundColor3 = RED_DARK
+removeGuiBtn.Text = "Remove GUI"
+removeGuiBtn.Font = Enum.Font.GothamMedium
+removeGuiBtn.TextSize = 14
+removeGuiBtn.TextColor3 = WHITE
+removeGuiBtn.Position = UDim2.fromOffset(16, 170)
+removeGuiBtn.Size = UDim2.fromOffset(390, 36)
+removeGuiBtn.Parent = settingsCard
+corner(removeGuiBtn, 8)
+
+removeGuiBtn.MouseButton1Click:Connect(function()
+    needleAuto = false
+    superHyperGemsFlags.AutoFarmGems = false
+    stopAutoNeedle()
+    removeNeedleHighlight()
+    gui:Destroy()
+end)
 
 player.Idled:Connect(function()
     pcall(function()
@@ -881,7 +988,7 @@ player.Idled:Connect(function()
     end)
 end)
 
--- Gems display from PlayerStatsUI, when available
+-- Gems display from PlayerStatsUI
 task.spawn(function()
     while gui.Parent do
         local ok, textValue = pcall(function()
