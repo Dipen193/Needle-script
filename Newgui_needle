@@ -504,7 +504,6 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ===== Settings / Misc page (GUI size control) =====
- =====
 local settingsPage = Instance.new("Frame")
 settingsPage.BackgroundTransparency = 1
 settingsPage.Size = UDim2.fromScale(1, 1)
