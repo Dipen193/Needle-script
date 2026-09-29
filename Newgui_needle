@@ -453,11 +453,12 @@ task.spawn(function()
     end
 end)
 
-makeToggle(homeCard, "Gems Dup", 1, function(on) AutoFarmGems = on end)
+makeToggle(homeCard, "Gems Dup", 2, function(on) AutoFarmGems = on end)
 
 local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
 local selectedClasses = {}
-local classStatus = label(homeCard, "Selected classes: 0", 13, GRAY, UDim2.fromOffset(16, 88), UDim2.fromOffset(250, 22), Enum.Font.Gotham)
+
+local classStatus = label(homeCard, "Selected classes: 0", 13, GRAY, UDim2.fromOffset(16, 100), UDim2.fromOffset(250, 22), Enum.Font.Gotham)
 local classButton = Instance.new("TextButton")
 classButton.AutoButtonColor = false
 classButton.BackgroundColor3 = OFF
@@ -465,29 +466,36 @@ classButton.Text = "Choose Classes"
 classButton.Font = Enum.Font.GothamMedium
 classButton.TextSize = 14
 classButton.TextColor3 = WHITE
-classButton.Position = UDim2.fromOffset(16, 116)
+classButton.Position = UDim2.fromOffset(16, 128)
 classButton.Size = UDim2.fromOffset(190, 36)
 classButton.Parent = homeCard
 corner(classButton, 8)
 
-local classPopup = frame(homePage, CARD, UDim2.fromOffset(18, 94), UDim2.fromOffset(360, 220))
+local classPopup = frame(homePage, CARD, UDim2.fromOffset(18, 94), UDim2.fromOffset(360, 230))
 classPopup.Visible = false
 classPopup.ZIndex = 20
 corner(classPopup, 10)
 stroke(classPopup, LINE, 1)
+
 label(classPopup, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(180, 24), Enum.Font.GothamBold).ZIndex = 21
+
 local classList = Instance.new("ScrollingFrame")
 classList.BackgroundTransparency = 1
 classList.BorderSizePixel = 0
 classList.Position = UDim2.fromOffset(10, 42)
-classList.Size = UDim2.fromOffset(340, 140)
+classList.Size = UDim2.fromOffset(340, 145)
 classList.ScrollBarThickness = 4
-classList.CanvasSize = UDim2.fromOffset(0, #classes * 32)
 classList.ZIndex = 21
 classList.Parent = classPopup
+
 local classLayout = Instance.new("UIListLayout")
 classLayout.Padding = UDim.new(0, 3)
 classLayout.Parent = classList
+
+classLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    classList.CanvasSize = UDim2.fromOffset(0, classLayout.AbsoluteContentSize.Y)
+end)
+
 local clearClasses = Instance.new("TextButton")
 clearClasses.AutoButtonColor = false
 clearClasses.BackgroundColor3 = OFF
@@ -495,7 +503,7 @@ clearClasses.Text = "Clear"
 clearClasses.Font = Enum.Font.GothamMedium
 clearClasses.TextSize = 13
 clearClasses.TextColor3 = WHITE
-clearClasses.Position = UDim2.fromOffset(250, 188)
+clearClasses.Position = UDim2.fromOffset(250, 195)
 clearClasses.Size = UDim2.fromOffset(90, 26)
 clearClasses.ZIndex = 22
 clearClasses.Parent = classPopup
@@ -506,6 +514,7 @@ local function updateClassCount()
     for _ in pairs(selectedClasses) do n += 1 end
     classStatus.Text = "Selected classes: " .. n
 end
+
 for _, name in ipairs(classes) do
     local b = Instance.new("TextButton")
     b.AutoButtonColor = false
@@ -526,6 +535,7 @@ for _, name in ipairs(classes) do
         updateClassCount()
     end)
 end
+
 clearClasses.MouseButton1Click:Connect(function()
     table.clear(selectedClasses)
     for _, b in ipairs(classList:GetChildren()) do
@@ -533,6 +543,7 @@ clearClasses.MouseButton1Click:Connect(function()
     end
     updateClassCount()
 end)
+
 classButton.MouseButton1Click:Connect(function() classPopup.Visible = not classPopup.Visible end)
 
 local rollButton = Instance.new("TextButton")
@@ -542,7 +553,7 @@ rollButton.Text = "Roll Selected"
 rollButton.Font = Enum.Font.GothamMedium
 rollButton.TextSize = 14
 rollButton.TextColor3 = WHITE
-rollButton.Position = UDim2.fromOffset(216, 116)
+rollButton.Position = UDim2.fromOffset(216, 128)
 rollButton.Size = UDim2.fromOffset(190, 36)
 rollButton.Parent = homeCard
 corner(rollButton, 8)
