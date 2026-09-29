@@ -1,20 +1,6 @@
 --========================================================
 -- BUILD&KILL ZOMBIE
--- AUTO MONEY FARM + BOSS FARM
---
--- AUTO MONEY FARM:
---   • Auto drive
---   • Noclip
---   • Fuel respawn cycle
---   • Turbo
---
--- BOSS FARM:
---   • Physics-based circle driving
---   • Does NOT teleport HumanoidRootPart
---   • Uses car AssemblyLinearVelocity
---   • Adjustable radius
---
--- Default Radius = 28
+-- AUTO MONEY FARM + BOSS FARM + ANTI AFK
 --========================================================
 
 local Players = game:GetService("Players")
@@ -36,9 +22,6 @@ local circleCenter = Vector3.new(
 )
 
 local circleRadius = 28
-
--- Circle look-ahead.
--- Higher value = smoother but wider steering.
 local circleLookAhead = 0.35
 
 --========================================================
@@ -47,6 +30,7 @@ local circleLookAhead = 0.35
 
 local autoMoneyFarm = false
 local bossFarm = false
+local antiAFK = false
 
 local cycleBusy = false
 local serverTop = nil
@@ -124,8 +108,7 @@ task.spawn(function()
 
                 if car then
 
-                    local fuel =
-                        car:GetAttribute("Fuel")
+                    local fuel = car:GetAttribute("Fuel")
 
                     if typeof(fuel) == "number"
                         and fuel < 4
@@ -133,12 +116,10 @@ task.spawn(function()
 
                         cycleBusy = true
 
-                        -- Despawn
                         Packets.DespawnCar:Fire()
 
                         task.wait(2)
 
-                        -- Spawn
                         Packets.SpawnCar:Fire()
 
                         task.wait(4)
@@ -150,7 +131,6 @@ task.spawn(function()
 
                     if tick() - lastRespawnTry > 12 then
                         lastRespawnTry = tick()
-
                         Packets.SpawnCar:Fire()
                     end
                 end
@@ -182,6 +162,23 @@ task.spawn(function()
                 end
             end)
         end
+    end
+end)
+
+--========================================================
+-- ANTI AFK
+--========================================================
+
+local VirtualUser = game:GetService("VirtualUser")
+
+lp.Idled:Connect(function()
+    if antiAFK then
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(
+                Vector2.new(0, 0)
+            )
+        end)
     end
 end)
 
@@ -226,8 +223,8 @@ local function getGroundPosition(position, car)
         )
 
     if hit and hit.Normal.Y > 0.5 then
-        return hit.Position
-            + Vector3.new(0, 4, 0)
+        return hit.Position +
+            Vector3.new(0, 4, 0)
     end
 
     return position
@@ -247,7 +244,6 @@ local function driveForward(car)
 
     local pos = ch.Position
 
-    -- Look forward.
     local forwardPoint =
         pos + Vector3.new(35, 0, 0)
 
@@ -332,8 +328,7 @@ local function driveCircle(car, dt)
         return
     end
 
-    local pos =
-        ch.Position
+    local pos = ch.Position
 
     local top =
         serverTop or 60
@@ -350,27 +345,23 @@ local function driveCircle(car, dt)
             1
         )
 
-    -- Convert linear speed into
-    -- angular speed.
     local angularSpeed =
         SPEED / radius
 
     circleAngle +=
         angularSpeed * dt
 
-    -- Look ahead around the circle.
     local targetAngle =
         circleAngle + circleLookAhead
 
     local targetXZ =
-        circleCenter
-        + Vector3.new(
+        circleCenter +
+        Vector3.new(
             math.cos(targetAngle) * radius,
             0,
             math.sin(targetAngle) * radius
         )
 
-    -- Find ground below target.
     local target =
         getGroundPosition(
             targetXZ,
@@ -411,20 +402,14 @@ local function driveCircle(car, dt)
     local desired =
         hd.Unit * SPEED
 
-    -- Smooth steering instead of
-    -- teleporting around the circle.
     if h.Magnitude > 2 then
 
         local alignment =
             h.Unit:Dot(hd.Unit)
 
         if alignment < 0.3 then
-
-            desired =
-                h * 0.85
-
+            desired = h * 0.85
         else
-
             desired =
                 h:Lerp(
                     desired,
@@ -447,8 +432,6 @@ end
 
 RunService.PostSimulation:Connect(function(dt)
 
-    -- Boss Farm has priority over
-    -- normal forward driving.
     if bossFarm then
 
         local car = getCar()
@@ -466,8 +449,6 @@ RunService.PostSimulation:Connect(function(dt)
                 car:GetAttribute("TopSpeed")
         end
 
-        -- If Auto Money Farm is also enabled,
-        -- keep noclip active.
         if autoMoneyFarm then
             applyNoclip()
         end
@@ -480,7 +461,6 @@ RunService.PostSimulation:Connect(function(dt)
         return
     end
 
-    -- Normal Auto Money Farm.
     if not autoMoneyFarm then
         return
     end
@@ -510,46 +490,19 @@ end)
 --========================================================
 
 local COLOR_BG =
-    Color3.fromRGB(
-        20,
-        20,
-        22
-    )
+    Color3.fromRGB(20, 20, 22)
 
 local COLOR_PANEL =
-    Color3.fromRGB(
-        28,
-        28,
-        31
-    )
+    Color3.fromRGB(28, 28, 31)
 
 local COLOR_BLUE =
-    Color3.fromRGB(
-        55,
-        145,
-        220
-    )
+    Color3.fromRGB(55, 145, 220)
 
 local COLOR_GREEN =
-    Color3.fromRGB(
-        70,
-        190,
-        90
-    )
-
-local COLOR_RED =
-    Color3.fromRGB(
-        205,
-        65,
-        65
-    )
+    Color3.fromRGB(70, 190, 90)
 
 local COLOR_TEXT =
-    Color3.fromRGB(
-        255,
-        255,
-        255
-    )
+    Color3.fromRGB(255, 255, 255)
 
 --========================================================
 -- GUI HELPERS
@@ -636,12 +589,13 @@ local main =
 main.Name =
     "Main"
 
+-- Increased height for Anti AFK.
 main.Size =
     UDim2.new(
         0,
         300,
         0,
-        235
+        290
     )
 
 main.Position =
@@ -649,7 +603,7 @@ main.Position =
         0.5,
         -150,
         0.5,
-        -117
+        -145
     )
 
 main.BackgroundColor3 =
@@ -668,6 +622,7 @@ main.Parent =
     gui
 
 corner(main, 12)
+
 stroke(
     main,
     Color3.fromRGB(
@@ -829,77 +784,86 @@ stroke(
 
 minimize.MouseButton1Click:Connect(function()
 
-    main.Visible =
-        false
-
-    openButton.Visible =
-        true
+    main.Visible = false
+    openButton.Visible = true
 end)
 
 openButton.MouseButton1Click:Connect(function()
 
-    main.Visible =
-        true
-
-    openButton.Visible =
-        false
+    main.Visible = true
+    openButton.Visible = false
 end)
 
 --========================================================
--- AUTO MONEY FARM BUTTON
+-- BUTTON CREATOR
+--========================================================
+
+local function createToggleButton(text, y)
+
+    local button =
+        Instance.new("TextButton")
+
+    button.Size =
+        UDim2.new(
+            1,
+            -30,
+            0,
+            48
+        )
+
+    button.Position =
+        UDim2.new(
+            0,
+            15,
+            0,
+            y
+        )
+
+    button.BackgroundColor3 =
+        COLOR_PANEL
+
+    button.Text =
+        text .. "   [OFF]"
+
+    button.TextColor3 =
+        COLOR_TEXT
+
+    button.Font =
+        Enum.Font.GothamBold
+
+    button.TextSize =
+        14
+
+    button.BorderSizePixel =
+        0
+
+    button.Parent =
+        main
+
+    corner(button, 9)
+
+    stroke(
+        button,
+        Color3.fromRGB(
+            65,
+            65,
+            70
+        ),
+        1
+    )
+
+    return button
+end
+
+--========================================================
+-- AUTO MONEY FARM
 --========================================================
 
 local autoButton =
-    Instance.new("TextButton")
-
-autoButton.Size =
-    UDim2.new(
-        1,
-        -30,
-        0,
-        48
-    )
-
-autoButton.Position =
-    UDim2.new(
-        0,
-        15,
-        0,
+    createToggleButton(
+        "AUTO MONEY FARM",
         55
     )
-
-autoButton.BackgroundColor3 =
-    COLOR_PANEL
-
-autoButton.Text =
-    "AUTO MONEY FARM   [OFF]"
-
-autoButton.TextColor3 =
-    COLOR_TEXT
-
-autoButton.Font =
-    Enum.Font.GothamBold
-
-autoButton.TextSize =
-    14
-
-autoButton.BorderSizePixel =
-    0
-
-autoButton.Parent =
-    main
-
-corner(autoButton, 9)
-
-stroke(
-    autoButton,
-    Color3.fromRGB(
-        65,
-        65,
-        70
-    ),
-    1
-)
 
 local function updateAutoButton()
 
@@ -930,60 +894,14 @@ autoButton.MouseButton1Click:Connect(function()
 end)
 
 --========================================================
--- BOSS FARM BUTTON
+-- BOSS FARM
 --========================================================
 
 local bossButton =
-    Instance.new("TextButton")
-
-bossButton.Size =
-    UDim2.new(
-        1,
-        -30,
-        0,
-        48
-    )
-
-bossButton.Position =
-    UDim2.new(
-        0,
-        15,
-        0,
+    createToggleButton(
+        "BOSS FARM",
         111
     )
-
-bossButton.BackgroundColor3 =
-    COLOR_PANEL
-
-bossButton.Text =
-    "BOSS FARM   [OFF]"
-
-bossButton.TextColor3 =
-    COLOR_TEXT
-
-bossButton.Font =
-    Enum.Font.GothamBold
-
-bossButton.TextSize =
-    14
-
-bossButton.BorderSizePixel =
-    0
-
-bossButton.Parent =
-    main
-
-corner(bossButton, 9)
-
-stroke(
-    bossButton,
-    Color3.fromRGB(
-        65,
-        65,
-        70
-    ),
-    1
-)
 
 local function updateBossButton()
 
@@ -1012,16 +930,13 @@ bossButton.MouseButton1Click:Connect(function()
 
     if bossFarm then
 
-        -- Start the circle from the
-        -- car's current angle.
-        local car =
-            getCar()
+        local car = getCar()
 
         if car and car.PrimaryPart then
 
             local offset =
-                car.PrimaryPart.Position
-                - circleCenter
+                car.PrimaryPart.Position -
+                circleCenter
 
             if offset.X ~= 0
                 or offset.Z ~= 0 then
@@ -1039,6 +954,44 @@ bossButton.MouseButton1Click:Connect(function()
 end)
 
 --========================================================
+-- ANTI AFK
+--========================================================
+
+local antiAFKButton =
+    createToggleButton(
+        "ANTI AFK",
+        167
+    )
+
+local function updateAntiAFKButton()
+
+    if antiAFK then
+
+        antiAFKButton.Text =
+            "ANTI AFK   [ON]"
+
+        antiAFKButton.BackgroundColor3 =
+            COLOR_GREEN
+
+    else
+
+        antiAFKButton.Text =
+            "ANTI AFK   [OFF]"
+
+        antiAFKButton.BackgroundColor3 =
+            COLOR_PANEL
+    end
+end
+
+antiAFKButton.MouseButton1Click:Connect(function()
+
+    antiAFK =
+        not antiAFK
+
+    updateAntiAFKButton()
+end)
+
+--========================================================
 -- RADIUS SECTION
 --========================================================
 
@@ -1051,7 +1004,7 @@ radiusText.BackgroundTransparency =
 radiusText.Size =
     UDim2.new(
         0,
-        100,
+        70,
         0,
         38
     )
@@ -1061,7 +1014,7 @@ radiusText.Position =
         0,
         15,
         0,
-        171
+        228
     )
 
 radiusText.Text =
@@ -1099,9 +1052,9 @@ radiusValue.Size =
 radiusValue.Position =
     UDim2.new(
         0,
-        90,
+        75,
         0,
-        171
+        228
     )
 
 radiusValue.Text =
@@ -1139,7 +1092,7 @@ minusButton.Position =
         1,
         -125,
         0,
-        172
+        229
     )
 
 minusButton.BackgroundColor3 =
@@ -1209,7 +1162,7 @@ plusButton.Position =
         1,
         -65,
         0,
-        172
+        229
     )
 
 plusButton.BackgroundColor3 =
@@ -1285,6 +1238,7 @@ end)
 
 updateAutoButton()
 updateBossButton()
+updateAntiAFKButton()
 
 print(
     "[BUILD&KILL ZOMBIE] Loaded"
