@@ -476,9 +476,29 @@ end)
 label(settingsCard, "Drag to resize the whole GUI window.", 12, GRAY, UDim2.fromOffset(16, 76), UDim2.new(1, -32, 0, 18), Enum.Font.Gotham)
 
 
--- Always-on Anti-AFK
-local afkLabel = label(settingsCard, "Anti-AFK", 15, WHITE, UDim2.fromOffset(16, 112), UDim2.fromOffset(180, 30), Enum.Font.GothamBold)
-local afkStatus = label(settingsCard, "Always ON", 13, RED, UDim2.fromOffset(16, 138), UDim2.fromOffset(180, 22), Enum.Font.GothamMedium)
+-- Always-on Anti-AFK — styled like the new GUI toggle, but locked ON
+local afkY = 112
+label(settingsCard, "Anti-AFK", 15, WHITE, UDim2.fromOffset(16, afkY), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
+
+local afkToggle = Instance.new("TextButton")
+afkToggle.AutoButtonColor = false
+afkToggle.Text = ""
+afkToggle.BackgroundColor3 = RED
+afkToggle.BorderSizePixel = 0
+afkToggle.AnchorPoint = Vector2.new(1, 0)
+afkToggle.Position = UDim2.new(1, -16, 0, afkY + 8)
+afkToggle.Size = UDim2.fromOffset(52, 24)
+afkToggle.Active = false
+afkToggle.Parent = settingsCard
+corner(afkToggle, 12)
+
+local afkKnob = Instance.new("Frame")
+afkKnob.BackgroundColor3 = WHITE
+afkKnob.BorderSizePixel = 0
+afkKnob.Position = UDim2.fromOffset(31, 3)
+afkKnob.Size = UDim2.fromOffset(18, 18)
+afkKnob.Parent = afkToggle
+corner(afkKnob, 9)
 
 player.Idled:Connect(function()
 	VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
@@ -580,29 +600,14 @@ local homePage, homeCard = makePage("Home", "Home", "Gems, class rolling and qui
 -- Gems display
 local homeGems = label(homeCard, "💎 Gems: Loading...", 15, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(220, 24), Enum.Font.GothamBold)
 
-local gemsBtn = Instance.new("TextButton")
-gemsBtn.Name = "GemsDup"
-gemsBtn.AutoButtonColor = false
-gemsBtn.BackgroundColor3 = OFF
-gemsBtn.BorderSizePixel = 0
-gemsBtn.Text = "Gems Dup  OFF"
-gemsBtn.Font = Enum.Font.GothamBold
-gemsBtn.TextSize = 13
-gemsBtn.TextColor3 = WHITE
-gemsBtn.Position = UDim2.fromOffset(16, 42)
-gemsBtn.Size = UDim2.fromOffset(185, 34)
-gemsBtn.Parent = homeCard
-corner(gemsBtn, 8)
-
-gemsBtn.MouseButton1Click:Connect(function()
-	AutoFarmGems = not AutoFarmGems
-	gemsBtn.Text = AutoFarmGems and "Gems Dup  ON" or "Gems Dup  OFF"
-	gemsBtn.BackgroundColor3 = AutoFarmGems and RED or OFF
+-- Gems Dup uses the same toggle style as the new GUI
+makeToggle(homeCard, "Gems Dup", 1, function(on)
+	AutoFarmGems = on
 end)
 
 -- Class selector
-label(homeCard, "Roll Class", 14, WHITE, UDim2.fromOffset(16, 88), UDim2.fromOffset(120, 22), Enum.Font.GothamBold)
-local selectedCount = label(homeCard, "Selected: 0", 11, GRAY, UDim2.fromOffset(16, 110), UDim2.fromOffset(120, 18), Enum.Font.Gotham)
+label(homeCard, "Roll Class", 15, WHITE, UDim2.fromOffset(16, 88), UDim2.fromOffset(180, 24), Enum.Font.GothamBold)
+local selectedCount = label(homeCard, "Selected: 0", 11, GRAY, UDim2.fromOffset(16, 112), UDim2.fromOffset(120, 18), Enum.Font.Gotham)
 
 local selectClasses = Instance.new("TextButton")
 selectClasses.AutoButtonColor = false
@@ -612,11 +617,13 @@ selectClasses.Text = "Classes ▼"
 selectClasses.Font = Enum.Font.GothamMedium
 selectClasses.TextSize = 13
 selectClasses.TextColor3 = WHITE
-selectClasses.Position = UDim2.fromOffset(150, 92)
+selectClasses.AnchorPoint = Vector2.new(1, 0)
+selectClasses.Position = UDim2.new(1, -16, 0, 92)
 selectClasses.Size = UDim2.fromOffset(125, 34)
 selectClasses.ZIndex = 20
 selectClasses.Parent = homeCard
 corner(selectClasses, 8)
+stroke(selectClasses, LINE, 1)
 
 local rollClass = Instance.new("TextButton")
 rollClass.AutoButtonColor = false
@@ -626,17 +633,19 @@ rollClass.Text = "ROLL"
 rollClass.Font = Enum.Font.GothamBold
 rollClass.TextSize = 13
 rollClass.TextColor3 = WHITE
-rollClass.Position = UDim2.fromOffset(285, 92)
+rollClass.AnchorPoint = Vector2.new(1, 0)
+rollClass.Position = UDim2.new(1, -16, 0, 138)
 rollClass.Size = UDim2.fromOffset(125, 34)
 rollClass.Parent = homeCard
 corner(rollClass, 8)
+stroke(rollClass, LINE, 1)
 
 local classDropdown = Instance.new("ScrollingFrame")
 classDropdown.BackgroundColor3 = CARD
 classDropdown.BorderSizePixel = 0
 classDropdown.ScrollBarThickness = 4
-classDropdown.Position = UDim2.fromOffset(16, 132)
-classDropdown.Size = UDim2.fromOffset(394, 130)
+classDropdown.Position = UDim2.fromOffset(16, 138)
+classDropdown.Size = UDim2.fromOffset(250, 130)
 classDropdown.CanvasSize = UDim2.fromOffset(0, #classes * 30)
 classDropdown.Visible = false
 classDropdown.ZIndex = 50
