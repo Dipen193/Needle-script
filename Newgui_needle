@@ -629,6 +629,34 @@ rollButton.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Fast Auto Gems Farm Execute Button
+local fastGemsBtn = Instance.new("TextButton")
+fastGemsBtn.AutoButtonColor = false
+fastGemsBtn.BackgroundColor3 = OFF
+fastGemsBtn.Text = "Fast Auto Gems Farm"
+fastGemsBtn.Font = Enum.Font.GothamMedium
+fastGemsBtn.TextSize = 14
+fastGemsBtn.TextColor3 = WHITE
+fastGemsBtn.Position = UDim2.fromOffset(16, 175)
+fastGemsBtn.Size = UDim2.fromOffset(390, 36)
+fastGemsBtn.Parent = homeCard
+corner(fastGemsBtn, 8)
+
+fastGemsBtn.MouseButton1Click:Connect(function()
+    fastGemsBtn.Text = "Executing..."
+    fastGemsBtn.BackgroundColor3 = RED_DARK
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/vlxebeclv/Search-For-The-Needle-Gem-Farm-v4/main/neeeeeeeee.lua"))()
+        end)
+        task.wait(1)
+        fastGemsBtn.Text = "Executed!"
+        task.wait(2)
+        fastGemsBtn.Text = "Fast Auto Gems Farm"
+        fastGemsBtn.BackgroundColor3 = OFF
+    end)
+end)
+
 -- ===== Main Farm: Auto Pick Needle =====
 local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle collection.")
 local needleAuto = false
