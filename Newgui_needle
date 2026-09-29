@@ -111,9 +111,6 @@ header.BackgroundTransparency = 1
 makeIcon(header, CAT_LOGO, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(44, 44))
 label(header, TITLE, 26, WHITE, UDim2.fromOffset(66, 8), UDim2.fromOffset(300, 30), Enum.Font.GothamBold)
 
--- Discord link: a read-mostly TextBox so the player can tap-and-hold to select + copy it
--- (Roblox has no built-in "copy to clipboard" call for normal scripts, so this relies on
--- the player's own phone/OS copy option after selecting the text, same as copying any text.)
 local linkBox = Instance.new("TextBox")
 linkBox.BackgroundTransparency = 1
 linkBox.Text = SUBTITLE
@@ -126,7 +123,6 @@ linkBox.Position = UDim2.fromOffset(67, 36)
 linkBox.Size = UDim2.fromOffset(300, 18)
 linkBox.Parent = header
 linkBox.FocusLost:Connect(function()
-	-- snap the text back if the player accidentally edited it while selecting
 	linkBox.Text = SUBTITLE
 end)
 
@@ -160,7 +156,7 @@ body.BackgroundTransparency = 1
 
 closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
 
--- Small floating toggle button: hides/shows the whole GUI window
+-- Small floating toggle button
 local floatBtn = Instance.new("ImageButton")
 floatBtn.Name = "FloatingToggle"
 floatBtn.BackgroundTransparency = 1
@@ -181,7 +177,7 @@ floatBtn.MouseButton1Click:Connect(function()
 	floatBtn.Visible = false
 end)
 
--- Let the floating button be dragged around the screen too
+-- Let floating button be dragged
 do
 	local dragging, dragStart, startPos
 	floatBtn.InputBegan:Connect(function(i)
@@ -204,7 +200,7 @@ do
 	end)
 end
 
--- Dragging (mouse + touch)
+-- Dragging main GUI
 do
 	local dragging, dragStart, startPos
 	header.InputBegan:Connect(function(i)
@@ -247,9 +243,9 @@ local tabs = {
 	{ "Teleports" },
 	{ "Misc" },
 }
-local DISPLAY_NAME = { Combat = "Main Farm" } -- shown text differs from the internal key
+local DISPLAY_NAME = { Combat = "Main Farm" }
 local tabButtons = {}
-local pages = {} -- filled in below once pages exist
+local pages = {}
 
 local function selectTab(name)
 	for n, b in pairs(tabButtons) do
@@ -471,43 +467,88 @@ classButton.Size = UDim2.fromOffset(190, 36)
 classButton.Parent = homeCard
 corner(classButton, 8)
 
-local classPopup = frame(homePage, CARD, UDim2.fromOffset(18, 94), UDim2.fromOffset(360, 230))
+-- Refactored Class Popup window matching Main GUI Design
+local classPopup = frame(homePage, CARD, UDim2.fromOffset(10, 62), UDim2.fromOffset(416, 265))
 classPopup.Visible = false
 classPopup.ZIndex = 20
 corner(classPopup, 10)
-stroke(classPopup, LINE, 1)
+stroke(classPopup, RED, 1)
 
-label(classPopup, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(180, 24), Enum.Font.GothamBold).ZIndex = 21
+-- Popup Header
+local popupHeader = frame(classPopup, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 40))
+popupHeader.BackgroundTransparency = 1
+popupHeader.ZIndex = 21
 
+local popupTitle = label(popupHeader, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 8), UDim2.fromOffset(200, 24), Enum.Font.GothamBold)
+popupTitle.ZIndex = 22
+
+-- Popup Close Button
+local popupClose = Instance.new("TextButton")
+popupClose.BackgroundTransparency = 1
+popupClose.Text = "X"
+popupClose.Font = Enum.Font.GothamBold
+popupClose.TextSize = 18
+popupClose.TextColor3 = RED
+popupClose.AnchorPoint = Vector2.new(1, 0)
+popupClose.Position = UDim2.new(1, -10, 0, 8)
+popupClose.Size = UDim2.fromOffset(24, 24)
+popupClose.ZIndex = 22
+popupClose.Parent = popupHeader
+popupClose.MouseButton1Click:Connect(function()
+    classPopup.Visible = false
+end)
+
+local popupDivider = frame(classPopup, LINE, UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 1))
+popupDivider.ZIndex = 21
+
+-- Scrolling Frame
 local classList = Instance.new("ScrollingFrame")
 classList.BackgroundTransparency = 1
 classList.BorderSizePixel = 0
-classList.Position = UDim2.fromOffset(10, 42)
-classList.Size = UDim2.fromOffset(340, 145)
+classList.Position = UDim2.fromOffset(12, 48)
+classList.Size = UDim2.fromOffset(392, 165)
 classList.ScrollBarThickness = 4
+classList.ScrollBarImageColor3 = RED
 classList.ZIndex = 21
 classList.Parent = classPopup
 
 local classLayout = Instance.new("UIListLayout")
-classLayout.Padding = UDim.new(0, 3)
+classLayout.Padding = UDim.new(0, 4)
 classLayout.Parent = classList
 
 classLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     classList.CanvasSize = UDim2.fromOffset(0, classLayout.AbsoluteContentSize.Y)
 end)
 
+-- Bottom Action Buttons inside Popup
 local clearClasses = Instance.new("TextButton")
 clearClasses.AutoButtonColor = false
 clearClasses.BackgroundColor3 = OFF
-clearClasses.Text = "Clear"
+clearClasses.Text = "Clear All"
 clearClasses.Font = Enum.Font.GothamMedium
 clearClasses.TextSize = 13
 clearClasses.TextColor3 = WHITE
-clearClasses.Position = UDim2.fromOffset(250, 195)
-clearClasses.Size = UDim2.fromOffset(90, 26)
+clearClasses.Position = UDim2.fromOffset(12, 222)
+clearClasses.Size = UDim2.fromOffset(100, 30)
 clearClasses.ZIndex = 22
 clearClasses.Parent = classPopup
-corner(clearClasses, 7)
+corner(clearClasses, 6)
+
+local closePopupBtn = Instance.new("TextButton")
+closePopupBtn.AutoButtonColor = false
+closePopupBtn.BackgroundColor3 = RED_DARK
+closePopupBtn.Text = "Done"
+closePopupBtn.Font = Enum.Font.GothamMedium
+closePopupBtn.TextSize = 13
+closePopupBtn.TextColor3 = WHITE
+closePopupBtn.Position = UDim2.fromOffset(304, 222)
+closePopupBtn.Size = UDim2.fromOffset(100, 30)
+closePopupBtn.ZIndex = 22
+closePopupBtn.Parent = classPopup
+corner(closePopupBtn, 6)
+closePopupBtn.MouseButton1Click:Connect(function()
+    classPopup.Visible = false
+end)
 
 local function updateClassCount()
     local n = 0
@@ -519,18 +560,20 @@ for _, name in ipairs(classes) do
     local b = Instance.new("TextButton")
     b.AutoButtonColor = false
     b.BackgroundColor3 = OFF
-    b.Text = "□ " .. name
+    b.Text = "   [  ]  " .. name
     b.Font = Enum.Font.Gotham
     b.TextSize = 13
     b.TextColor3 = WHITE
     b.TextXAlignment = Enum.TextXAlignment.Left
-    b.Size = UDim2.new(1, -6, 0, 29)
+    b.Size = UDim2.new(1, -8, 0, 30)
     b.ZIndex = 22
     b.Parent = classList
     corner(b, 6)
+    stroke(b, LINE, 1)
+    
     b.MouseButton1Click:Connect(function()
         selectedClasses[name] = not selectedClasses[name] and true or nil
-        b.Text = (selectedClasses[name] and "✓ " or "□ ") .. name
+        b.Text = (selectedClasses[name] and "   [ ✓ ]  " or "   [  ]  ") .. name
         b.BackgroundColor3 = selectedClasses[name] and RED_DARK or OFF
         updateClassCount()
     end)
@@ -539,7 +582,11 @@ end
 clearClasses.MouseButton1Click:Connect(function()
     table.clear(selectedClasses)
     for _, b in ipairs(classList:GetChildren()) do
-        if b:IsA("TextButton") then b.Text = "□ " .. b.Text:gsub("^[✓□] ", ""); b.BackgroundColor3 = OFF end
+        if b:IsA("TextButton") then 
+            local name = b.Text:gsub("^%s*%[[%s✓%]*%]%s*", "")
+            b.Text = "   [  ]  " .. name
+            b.BackgroundColor3 = OFF 
+        end
     end
     updateClassCount()
 end)
@@ -767,7 +814,7 @@ end
 makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v) walkSpeed = v; applyStats() end)
 makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v) jumpPower = v; applyStats() end)
 makeToggle(playerCard, "Infinite Jump", 5, function(on)
-    -- State is intentionally local; movement code can be added here without changing the GUI.
+    -- State is intentionally local
 end)
 player.CharacterAdded:Connect(function() task.wait(0.5); applyStats() end)
 
@@ -819,5 +866,4 @@ task.spawn(function()
     end
 end)
 
--- Show Home after every page has been created.
 selectTab("Home")
