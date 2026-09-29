@@ -598,28 +598,28 @@ local classRolling = false
 local homePage, homeCard = makePage("Home", "Home", "Gems, class rolling and quick access.")
 
 -- Gems display
-local homeGems = label(homeCard, "💎 Gems: Loading...", 15, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(220, 24), Enum.Font.GothamBold)
+local homeGems = label(homeCard, "💎 Gems: Loading...", 15, WHITE, UDim2.fromOffset(16, 4), UDim2.fromOffset(220, 38), Enum.Font.GothamBold)
 
 -- Gems Dup uses the same toggle style as the new GUI
-makeToggle(homeCard, "Gems Dup", 1, function(on)
+makeToggle(homeCard, "Gems Dup", 2, function(on)
 	AutoFarmGems = on
 end)
 
 -- Class selector
 label(homeCard, "Roll Class", 15, WHITE, UDim2.fromOffset(16, 88), UDim2.fromOffset(180, 24), Enum.Font.GothamBold)
-local selectedCount = label(homeCard, "Selected: 0", 11, GRAY, UDim2.fromOffset(16, 112), UDim2.fromOffset(120, 18), Enum.Font.Gotham)
+local selectedCount = label(homeCard, "0 selected", 11, GRAY, UDim2.fromOffset(16, 112), UDim2.fromOffset(130, 18), Enum.Font.Gotham)
 
 local selectClasses = Instance.new("TextButton")
 selectClasses.AutoButtonColor = false
 selectClasses.BackgroundColor3 = OFF
 selectClasses.BorderSizePixel = 0
-selectClasses.Text = "Classes ▼"
+selectClasses.Text = "Choose Classes  ▼"
 selectClasses.Font = Enum.Font.GothamMedium
-selectClasses.TextSize = 13
+selectClasses.TextSize = 12
 selectClasses.TextColor3 = WHITE
 selectClasses.AnchorPoint = Vector2.new(1, 0)
 selectClasses.Position = UDim2.new(1, -16, 0, 92)
-selectClasses.Size = UDim2.fromOffset(125, 34)
+selectClasses.Size = UDim2.fromOffset(145, 34)
 selectClasses.ZIndex = 20
 selectClasses.Parent = homeCard
 corner(selectClasses, 8)
@@ -629,88 +629,143 @@ local rollClass = Instance.new("TextButton")
 rollClass.AutoButtonColor = false
 rollClass.BackgroundColor3 = OFF
 rollClass.BorderSizePixel = 0
-rollClass.Text = "ROLL"
+rollClass.Text = "ROLL CLASSES"
 rollClass.Font = Enum.Font.GothamBold
-rollClass.TextSize = 13
+rollClass.TextSize = 12
 rollClass.TextColor3 = WHITE
 rollClass.AnchorPoint = Vector2.new(1, 0)
 rollClass.Position = UDim2.new(1, -16, 0, 138)
-rollClass.Size = UDim2.fromOffset(125, 34)
+rollClass.Size = UDim2.fromOffset(145, 34)
 rollClass.Parent = homeCard
 corner(rollClass, 8)
 stroke(rollClass, LINE, 1)
 
-local classDropdown = Instance.new("ScrollingFrame")
+-- Cleaner class picker panel
+local classDropdown = Instance.new("Frame")
+classDropdown.Name = "ClassPicker"
 classDropdown.BackgroundColor3 = CARD
 classDropdown.BorderSizePixel = 0
-classDropdown.ScrollBarThickness = 4
-classDropdown.Position = UDim2.fromOffset(16, 138)
-classDropdown.Size = UDim2.fromOffset(250, 130)
-classDropdown.CanvasSize = UDim2.fromOffset(0, #classes * 30)
+classDropdown.Position = UDim2.fromOffset(12, 176)
+classDropdown.Size = UDim2.new(1, -24, 0, 230)
 classDropdown.Visible = false
-classDropdown.ZIndex = 50
+classDropdown.ZIndex = 100
 classDropdown.Parent = homeCard
-corner(classDropdown, 8)
+corner(classDropdown, 10)
 stroke(classDropdown, LINE, 1)
+
+local pickerTitle = label(classDropdown, "Select classes", 13, WHITE, UDim2.fromOffset(12, 8), UDim2.fromOffset(150, 22), Enum.Font.GothamBold)
+pickerTitle.ZIndex = 101
+
+local clearClasses = Instance.new("TextButton")
+clearClasses.AutoButtonColor = false
+clearClasses.BackgroundColor3 = OFF
+clearClasses.BorderSizePixel = 0
+clearClasses.Text = "Clear"
+clearClasses.Font = Enum.Font.GothamMedium
+clearClasses.TextSize = 11
+clearClasses.TextColor3 = GRAY
+clearClasses.Position = UDim2.new(1, -72, 0, 7)
+clearClasses.Size = UDim2.fromOffset(60, 24)
+clearClasses.ZIndex = 101
+clearClasses.Parent = classDropdown
+corner(clearClasses, 6)
+
+local classList = Instance.new("ScrollingFrame")
+classList.Name = "ClassList"
+classList.BackgroundTransparency = 1
+classList.BorderSizePixel = 0
+classList.ScrollBarThickness = 3
+classList.ScrollBarImageColor3 = GRAY
+classList.Position = UDim2.fromOffset(8, 38)
+classList.Size = UDim2.new(1, -16, 1, -46)
+classList.CanvasSize = UDim2.new(0, 0, 0, #classes * 34)
+classList.ZIndex = 101
+classList.Parent = classDropdown
+
 local classLayout = Instance.new("UIListLayout")
-classLayout.Padding = UDim.new(0, 2)
-classLayout.Parent = classDropdown
+classLayout.Padding = UDim.new(0, 4)
+classLayout.Parent = classList
+
+local classButtons = {}
+local function updateSelectedCount()
+	local count = 0
+	for _ in pairs(selectedClasses) do count += 1 end
+	selectedCount.Text = count == 0 and "0 selected" or (count .. " selected")
+	selectClasses.Text = count == 0 and "Choose Classes  ▼" or (count .. " Classes  ▼")
+end
 
 for _, className in ipairs(classes) do
 	local b = Instance.new("TextButton")
+	b.Name = className:gsub("%s+", "")
 	b.AutoButtonColor = false
 	b.BackgroundColor3 = OFF
 	b.BorderSizePixel = 0
-	b.Text = "☐ " .. className
+	b.Text = "  " .. className
+	b.TextXAlignment = Enum.TextXAlignment.Left
 	b.Font = Enum.Font.GothamMedium
 	b.TextSize = 12
 	b.TextColor3 = WHITE
-	b.Size = UDim2.new(1, -6, 0, 28)
-	b.ZIndex = 51
-	b.Parent = classDropdown
-	corner(b, 6)
+	b.Size = UDim2.new(1, -2, 0, 30)
+	b.ZIndex = 102
+	b.Parent = classList
+	corner(b, 7)
+	classButtons[className] = b
+
 	b.MouseButton1Click:Connect(function()
 		selectedClasses[className] = not selectedClasses[className] or nil
 		if selectedClasses[className] then
-			b.Text = "☑ " .. className
+			b.Text = "  ✓  " .. className
+			b.TextColor3 = WHITE
 			b.BackgroundColor3 = RED_DARK
 		else
-			b.Text = "☐ " .. className
+			b.Text = "  " .. className
+			b.TextColor3 = WHITE
 			b.BackgroundColor3 = OFF
 		end
-		local count = 0
-		for _ in pairs(selectedClasses) do count += 1 end
-		selectedCount.Text = "Selected: " .. count
+		updateSelectedCount()
 	end)
 end
 
+clearClasses.MouseButton1Click:Connect(function()
+	for className, b in pairs(classButtons) do
+		selectedClasses[className] = nil
+		b.Text = "  " .. className
+		b.BackgroundColor3 = OFF
+	end
+	updateSelectedCount()
+end)
+
 selectClasses.MouseButton1Click:Connect(function()
 	classDropdown.Visible = not classDropdown.Visible
-	selectClasses.Text = classDropdown.Visible and "Classes ▲" or "Classes ▼"
+	selectClasses.Text = classDropdown.Visible and "Close  ▲" or "Choose Classes  ▼"
+	if classDropdown.Visible then
+		-- Keep the picker above the rest of Home content.
+		classDropdown.ZIndex = 100
+	end
 end)
 
 rollClass.MouseButton1Click:Connect(function()
 	if classRolling then
 		classRolling = false
-		rollClass.Text = "ROLL"
+		rollClass.Text = "ROLL CLASSES"
 		rollClass.BackgroundColor3 = OFF
 		return
 	end
 	local count = 0
 	for _ in pairs(selectedClasses) do count += 1 end
 	if count == 0 then
-		rollClass.Text = "SELECT"
+		rollClass.Text = "SELECT FIRST"
 		rollClass.BackgroundColor3 = RED
 		task.delay(0.8, function()
 			if not classRolling then
-				rollClass.Text = "ROLL"
+				rollClass.Text = "ROLL CLASSES"
 				rollClass.BackgroundColor3 = OFF
 			end
 		end)
 		return
 	end
 	classRolling = true
-	rollClass.Text = "ON"
+	rollClass.Text = "ROLLING..."
 	rollClass.BackgroundColor3 = RED
 end)
 
@@ -722,7 +777,7 @@ task.spawn(function()
 			local ok, result = pcall(function() return Event:InvokeServer() end)
 			if ok and type(result) == "table" and selectedClasses[result.className] then
 				classRolling = false
-				rollClass.Text = "FOUND"
+				rollClass.Text = "✓ FOUND: " .. tostring(result.className)
 				rollClass.BackgroundColor3 = RED
 			end
 		end
