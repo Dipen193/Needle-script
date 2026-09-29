@@ -11,7 +11,7 @@ local player = Players.LocalPlayer
 
 -- ===== Settings =====
 local TITLE = "NEEDLE SCRIPT"
-local SUBTITLE = "https://discord.gg/YtDnm8PtM"
+local SUBTITLE = "https://discord.gg/xXZStK2WZ"
 local CREDIT = "DIPEN"
 
 -- ICON IDS ("rbxassetid://1234567890")
