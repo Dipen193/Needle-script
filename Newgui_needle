@@ -2,9 +2,6 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local player = Players.LocalPlayer
 
@@ -291,655 +288,525 @@ label(body, CREDIT, 13, RED, UDim2.fromOffset(74, 326), UDim2.fromOffset(100, 20
 local content = frame(body, BG, UDim2.fromOffset(192, 10), UDim2.fromOffset(436, 336))
 content.BackgroundTransparency = 1
 
--- Main Farm page
-local combatPage = Instance.new("Frame")
-combatPage.BackgroundTransparency = 1
-combatPage.Size = UDim2.fromScale(1, 1)
-combatPage.Parent = content
-pages.Combat = combatPage
-
-local head = frame(combatPage, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
-corner(head, 10)
-stroke(head, LINE, 1)
-makeIcon(head, ICONS.Combat, RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
-label(head, "Main Farm", 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
-label(head, "Needle automation.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
-
-local card = frame(combatPage, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
-corner(card, 10)
-stroke(card, LINE, 1)
-
--- Auto Pick Needle backend
-local AutoPickNeedle = false
-local needleCharacter, needleHumanoid, needleRootPart
-local needle, needlePrompt
-local needleFlyConnection
-local needleCameraConnection
-local needleFlying = false
-local needleCameraFocused = false
-local NEEDLE_FLY_SPEED = 25
-local NEEDLE_DISTANCE_BEHIND = 3
-local NEEDLE_INTERACTIONS = 3
-
-local function needleGetCharacter()
-	local char = player.Character
-	if not char then return false end
-	needleCharacter = char
-	needleHumanoid = char:FindFirstChildOfClass("Humanoid")
-	needleRootPart = char:FindFirstChild("HumanoidRootPart")
-	return needleHumanoid ~= nil and needleRootPart ~= nil
+-- ===== Shared toggle =====
+local function makeToggle(parent, text, index, callback, initial)
+    local y = 4 + (index - 1) * 38
+    label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
+    local bg = Instance.new("TextButton")
+    bg.AutoButtonColor = false
+    bg.Text = ""
+    bg.BackgroundColor3 = OFF
+    bg.BorderSizePixel = 0
+    bg.AnchorPoint = Vector2.new(1, 0)
+    bg.Position = UDim2.new(1, -16, 0, y + 8)
+    bg.Size = UDim2.fromOffset(52, 24)
+    bg.Parent = parent
+    corner(bg, 12)
+    local knob = Instance.new("Frame")
+    knob.BackgroundColor3 = GRAY
+    knob.BorderSizePixel = 0
+    knob.Position = UDim2.fromOffset(3, 3)
+    knob.Size = UDim2.fromOffset(18, 18)
+    knob.Parent = bg
+    corner(knob, 9)
+    local state = initial == true
+    local function paint()
+        local info = TweenInfo.new(0.15)
+        TweenService:Create(bg, info, {BackgroundColor3 = state and RED or OFF}):Play()
+        TweenService:Create(knob, info, {
+            Position = state and UDim2.fromOffset(31, 3) or UDim2.fromOffset(3, 3),
+            BackgroundColor3 = state and WHITE or GRAY,
+        }):Play()
+    end
+    paint()
+    bg.MouseButton1Click:Connect(function()
+        state = not state
+        paint()
+        callback(state)
+    end)
+    if initial == true then callback(true) end
+    return function() return state end
 end
 
-local function getNeedle()
-	local main = workspace:FindFirstChild("Main")
-	if main then
-		needle = main:FindFirstChild("Needle")
-		if needle then
-			needlePrompt = needle:FindFirstChild("NeedlePrompt", true)
-		end
-	end
-	return needle
+local function makeSlider(parent, text, y, min, max, default, callback)
+    label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.fromOffset(200, 24), Enum.Font.Gotham)
+    local track = frame(parent, Color3.fromRGB(28, 28, 34), UDim2.fromOffset(16, y + 34), UDim2.new(1, -112, 0, 6))
+    corner(track, 3)
+    local fill = frame(track, RED, UDim2.fromOffset(0, 0), UDim2.new(0, 0, 1, 0))
+    corner(fill, 3)
+    local knob = frame(track, RED, UDim2.new(0, 0, 0.5, 0), UDim2.fromOffset(18, 18))
+    knob.AnchorPoint = Vector2.new(0.5, 0.5)
+    corner(knob, 9)
+    local valueBox = Instance.new("TextBox")
+    valueBox.BackgroundColor3 = BG
+    valueBox.BorderSizePixel = 0
+    valueBox.AnchorPoint = Vector2.new(1, 0)
+    valueBox.Position = UDim2.new(1, -16, 0, y + 12)
+    valueBox.Size = UDim2.fromOffset(62, 32)
+    valueBox.Font = Enum.Font.Gotham
+    valueBox.TextSize = 17
+    valueBox.TextColor3 = WHITE
+    valueBox.ClearTextOnFocus = false
+    valueBox.Text = tostring(default)
+    valueBox.Parent = parent
+    corner(valueBox, 6)
+    stroke(valueBox, LINE, 1)
+    local function setValue(v, fire)
+        v = math.clamp(math.floor((tonumber(v) or default) + 0.5), min, max)
+        local rel = (v - min) / math.max(1, max - min)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        knob.Position = UDim2.new(rel, 0, 0.5, 0)
+        valueBox.Text = tostring(v)
+        if fire then callback(v) end
+    end
+    setValue(default, false)
+    local hit = Instance.new("TextButton")
+    hit.BackgroundTransparency = 1
+    hit.Text = ""
+    hit.Position = UDim2.fromOffset(-6, -10)
+    hit.Size = UDim2.new(1, 12, 1, 20)
+    hit.Parent = track
+    local dragging = false
+    local function fromX(x)
+        local rel = math.clamp((x - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X), 0, 1)
+        setValue(min + (max - min) * rel, true)
+    end
+    hit.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            fromX(i.Position.X)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then fromX(i.Position.X) end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+    valueBox.FocusLost:Connect(function() setValue(valueBox.Text, true) end)
 end
 
-local function getNeedlePart()
-	if not needle or not needle.Parent then return nil end
-	if needle:IsA("BasePart") then return needle end
-	if needle.PrimaryPart then return needle.PrimaryPart end
-	return needle:FindFirstChildWhichIsA("BasePart", true)
-end
-
-local function stopNeedleFly()
-	needleFlying = false
-	if needleFlyConnection then
-		needleFlyConnection:Disconnect()
-		needleFlyConnection = nil
-	end
-	if needleRootPart then
-		for _, obj in ipairs(needleRootPart:GetChildren()) do
-			if obj.Name == "NeedleFlyVelocity" or obj.Name == "NeedleFlyGyro" then
-				obj:Destroy()
-			end
-		end
-	end
-	if needleHumanoid then
-		needleHumanoid.PlatformStand = false
-	end
-end
-
-local function startNeedleFly()
-	if not needleGetCharacter() then return end
-	stopNeedleFly()
-	needleFlying = true
-	needleHumanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
-	needleHumanoid.PlatformStand = true
-
-	local bv = Instance.new("BodyVelocity")
-	bv.Name = "NeedleFlyVelocity"
-	bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-	bv.Velocity = Vector3.zero
-	bv.Parent = needleRootPart
-
-	local bg = Instance.new("BodyGyro")
-	bg.Name = "NeedleFlyGyro"
-	bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-	bg.P = 9000
-	bg.CFrame = needleRootPart.CFrame
-	bg.Parent = needleRootPart
-
-	needleFlyConnection = RunService.RenderStepped:Connect(function()
-		if not AutoPickNeedle or not needleFlying or not needleRootPart or not needleRootPart.Parent then return end
-		local cam = workspace.CurrentCamera
-		if not cam then return end
-		local cf = cam.CFrame
-		local dir = Vector3.zero
-		if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cf.LookVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cf.LookVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cf.RightVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cf.RightVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += cf.UpVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= cf.UpVector end
-		if dir.Magnitude > 0 then dir = dir.Unit end
-		bv.Velocity = dir * NEEDLE_FLY_SPEED
-		if dir.Magnitude > 0 then
-			bg.CFrame = needleRootPart.CFrame:Lerp(CFrame.lookAt(needleRootPart.Position, needleRootPart.Position + dir), 0.3)
-		end
-	end)
-end
-
-local function forceNeedleCamera()
-	local cam = workspace.CurrentCamera
-	if cam and needleHumanoid and needleHumanoid.Parent then
-		cam.CameraType = Enum.CameraType.Custom
-		cam.CameraSubject = needleHumanoid
-	end
-end
-
-local function focusNeedleCamera()
-	if needleCameraConnection then needleCameraConnection:Disconnect() end
-	local cam = workspace.CurrentCamera
-	local part = getNeedlePart()
-	if not cam or not part or not needleRootPart then return end
-	needleCameraFocused = true
-	cam.CameraType = Enum.CameraType.Scriptable
-	needleCameraConnection = RunService.RenderStepped:Connect(function()
-		if not AutoPickNeedle or not needleCameraFocused then return end
-		local currentPart = getNeedlePart()
-		local currentCam = workspace.CurrentCamera
-		if currentCam and currentPart and needleRootPart then
-			local camPos = needleRootPart.Position + Vector3.new(0, 2, 5)
-			currentCam.CFrame = CFrame.lookAt(camPos, currentPart.Position)
-		end
-	end)
-end
-
-local function unfocusNeedleCamera()
-	needleCameraFocused = false
-	if needleCameraConnection then
-		needleCameraConnection:Disconnect()
-		needleCameraConnection = nil
-	end
-	forceNeedleCamera()
-end
-
-local function needleTeleport()
-	local part = getNeedlePart()
-	if not part or not needleRootPart then return false end
-	local backward = -part.CFrame.LookVector
-	local pos = part.Position + backward * NEEDLE_DISTANCE_BEHIND
-	pos = Vector3.new(pos.X, part.Position.Y, pos.Z)
-	needleRootPart.CFrame = CFrame.lookAt(pos, part.Position)
-	return true
-end
-
-local function needlePressE()
-	local vim = game:GetService("VirtualInputManager")
-	vim:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
-	task.wait(0.05)
-	vim:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
-end
-
-local function needleInteract()
-	for _ = 1, NEEDLE_INTERACTIONS do
-		if not AutoPickNeedle then return end
-		needlePressE()
-		task.wait(0.1)
-	end
-end
-
-local function runAutoPickNeedle()
-	if not AutoPickNeedle then return end
-	if not needleGetCharacter() then return end
-	if not getNeedle() then return end
-	needleTeleport()
-	focusNeedleCamera()
-	needleInteract()
-	unfocusNeedleCamera()
-	startNeedleFly()
-end
-
-local function stopAutoPickNeedle()
-	AutoPickNeedle = false
-	unfocusNeedleCamera()
-	stopNeedleFly()
-	forceNeedleCamera()
-end
-
-makeToggle(card, "Auto Pick Needle", 1, function(on)
-	if on then
-		AutoPickNeedle = true
-		task.spawn(runAutoPickNeedle)
-	else
-		stopAutoPickNeedle()
-	end
-end)
-
-player.CharacterAdded:Connect(function(char)
-	needleCharacter = char
-	needleHumanoid = char:WaitForChild("Humanoid", 5)
-	needleRootPart = char:WaitForChild("HumanoidRootPart", 5)
-	if AutoPickNeedle then
-		task.wait(0.5)
-		task.spawn(runAutoPickNeedle)
-	end
-end)
-
--- ===== Settings / Misc page (GUI size control) =====
-local settingsPage = Instance.new("Frame")
-settingsPage.BackgroundTransparency = 1
-settingsPage.Size = UDim2.fromScale(1, 1)
-settingsPage.Visible = false
-settingsPage.Parent = content
-pages.Misc = settingsPage
-
-local settingsHead = frame(settingsPage, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
-corner(settingsHead, 10)
-stroke(settingsHead, LINE, 1)
-makeIcon(settingsHead, ICONS.Misc, RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
-label(settingsHead, "Misc", 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
-label(settingsHead, "General settings and GUI options.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
-
-local settingsCard = frame(settingsPage, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
-corner(settingsCard, 10)
-stroke(settingsCard, LINE, 1)
-
-makeSlider(settingsCard, "GUI Size", 12, 50, 150, 100, function(v)
-	userGuiScale = v / 100
-	updateScale()
-end)
-label(settingsCard, "Drag to resize the whole GUI window.", 12, GRAY, UDim2.fromOffset(16, 76), UDim2.new(1, -32, 0, 18), Enum.Font.Gotham)
-
-
--- Always-on Anti-AFK — styled like the new GUI toggle, but locked ON
-local afkY = 112
-label(settingsCard, "Anti-AFK", 15, WHITE, UDim2.fromOffset(16, afkY), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
-
-local afkToggle = Instance.new("TextButton")
-afkToggle.AutoButtonColor = false
-afkToggle.Text = ""
-afkToggle.BackgroundColor3 = RED
-afkToggle.BorderSizePixel = 0
-afkToggle.AnchorPoint = Vector2.new(1, 0)
-afkToggle.Position = UDim2.new(1, -16, 0, afkY + 8)
-afkToggle.Size = UDim2.fromOffset(52, 24)
-afkToggle.Active = false
-afkToggle.Parent = settingsCard
-corner(afkToggle, 12)
-
-local afkKnob = Instance.new("Frame")
-afkKnob.BackgroundColor3 = WHITE
-afkKnob.BorderSizePixel = 0
-afkKnob.Position = UDim2.fromOffset(31, 3)
-afkKnob.Size = UDim2.fromOffset(18, 18)
-afkKnob.Parent = afkToggle
-corner(afkKnob, 9)
-
-player.Idled:Connect(function()
-	VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-	task.wait(1)
-	VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-end)
-
--- Helper: builds a page's header card + a blank options card, and registers it in `pages`
 local function makePage(key, title, subtitle)
-	local page = Instance.new("Frame")
-	page.BackgroundTransparency = 1
-	page.Size = UDim2.fromScale(1, 1)
-	page.Visible = false
-	page.Parent = content
-	pages[key] = page
-
-	local pageHead = frame(page, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
-	corner(pageHead, 10)
-	stroke(pageHead, LINE, 1)
-	makeIcon(pageHead, ICONS[key], RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
-	label(pageHead, title, 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
-	label(pageHead, subtitle, 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
-
-	local pageCard = frame(page, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
-	corner(pageCard, 10)
-	stroke(pageCard, LINE, 1)
-
-	return page, pageCard
+    local page = Instance.new("Frame")
+    page.BackgroundTransparency = 1
+    page.Size = UDim2.fromScale(1, 1)
+    page.Visible = false
+    page.Parent = content
+    pages[key] = page
+    local pageHead = frame(page, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
+    corner(pageHead, 10)
+    stroke(pageHead, LINE, 1)
+    makeIcon(pageHead, ICONS[key], RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
+    label(pageHead, title, 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
+    label(pageHead, subtitle, 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(340, 18), Enum.Font.Gotham)
+    local pageCard = frame(page, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
+    corner(pageCard, 10)
+    stroke(pageCard, LINE, 1)
+    return page, pageCard
 end
 
--- ===== Minigame / Gems backend =====
+-- ===== Home =====
+local homePage, homeCard = makePage("Home", "Home", "Gems and class tools.")
+local gemsDisplay = label(homeCard, "Gems: Loading...", 16, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(260, 28), Enum.Font.GothamBold)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
 local AutoFarmGems = false
 local TotalFarmedGems = 0
-local gemPrompt = nil
+local gemsBusy = false
 
-local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade")
-local ArcadeReport = ArcadeFolder:WaitForChild("ArcadeReport")
-local ArcadeSession = ArcadeFolder:WaitForChild("ArcadeSession")
-
-local function findGemPrompt()
-	local machine = workspace:FindFirstChild("Arcade Machine", true)
-	if machine then
-		gemPrompt = machine:FindFirstChild("PlayPrompt", true)
-	end
-	if not gemPrompt then
-		for _, object in ipairs(workspace:GetDescendants()) do
-			if object:IsA("ProximityPrompt") and object.Name == "PlayPrompt" then
-				gemPrompt = object
-				break
-			end
-		end
-	end
-	if gemPrompt and gemPrompt.Parent then
-		gemPrompt.HoldDuration = 0
-		gemPrompt.MaxActivationDistance = math.huge
-		gemPrompt.RequiresLineOfSight = false
-		gemPrompt.ClickablePrompt = true
-		return gemPrompt
-	end
-	return nil
+local function gemFarmOnce()
+    if gemsBusy then return end
+    gemsBusy = true
+    task.spawn(function()
+        pcall(function()
+            local arcade = ReplicatedStorage:FindFirstChild("Arcade")
+            local report = arcade and arcade:FindFirstChild("ArcadeReport")
+            local session = arcade and arcade:FindFirstChild("ArcadeSession")
+            local machine = workspace:FindFirstChild("Arcade Machine", true)
+            local prompt = machine and machine:FindFirstChild("PlayPrompt", true)
+            if not prompt then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") and obj.Name == "PlayPrompt" then prompt = obj break end
+                end
+            end
+            if prompt then
+                prompt.HoldDuration = 0
+                prompt.MaxActivationDistance = math.huge
+                prompt.RequiresLineOfSight = false
+                if fireproximityprompt then fireproximityprompt(prompt, 0) else prompt:InputHoldBegin(); prompt:InputHoldEnd() end
+            end
+            if report and report:IsA("RemoteEvent") then report:FireServer("kills", 40, 2) end
+            if session and session:IsA("RemoteEvent") then session:FireServer("quit", 1, 6240) end
+            TotalFarmedGems += 1
+        end)
+        gemsBusy = false
+    end)
 end
 
-for i = 1, 4 do
-	task.spawn(function()
-		while gui.Parent do
-			if AutoFarmGems then
-				pcall(function()
-					local prompt = findGemPrompt()
-					if prompt then
-						if fireproximityprompt then
-							fireproximityprompt(prompt, 0)
-						else
-							prompt:InputHoldBegin()
-							prompt:InputHoldEnd()
-						end
-					end
-					ArcadeReport:FireServer("kills", 40, 2)
-					TotalFarmedGems += 1
-					ArcadeSession:FireServer("quit", 1, 6240)
-				end)
-				task.wait()
-			else
-				task.wait(0.2)
-			end
-		end
-	end)
-end
-
-local classes = {
-	"Starter", "Pack Mule", "Hay Merchant", "Forkmaster", "Demolitionist",
-	"Prospector", "Drone Specialist", "Hoover", "Ultimate Farmer", "The Chosen One"
-}
-local selectedClasses = {}
-local classRolling = false
-
--- ===== Home page =====
-local homePage, homeCard = makePage("Home", "Home", "Gems, class rolling and quick access.")
-
--- Gems display
-local homeGems = label(homeCard, "💎 Gems: Loading...", 15, WHITE, UDim2.fromOffset(16, 4), UDim2.fromOffset(220, 38), Enum.Font.GothamBold)
-
--- Gems Dup uses the same toggle style as the new GUI
-makeToggle(homeCard, "Gems Dup", 2, function(on)
-	AutoFarmGems = on
+task.spawn(function()
+    while gui.Parent do
+        if AutoFarmGems then gemFarmOnce() end
+        task.wait(0.1)
+    end
 end)
 
--- Class selector
-label(homeCard, "Roll Class", 15, WHITE, UDim2.fromOffset(16, 88), UDim2.fromOffset(180, 24), Enum.Font.GothamBold)
-local selectedCount = label(homeCard, "0 selected", 11, GRAY, UDim2.fromOffset(16, 112), UDim2.fromOffset(130, 18), Enum.Font.Gotham)
+makeToggle(homeCard, "Gems Dup", 1, function(on) AutoFarmGems = on end)
 
-local selectClasses = Instance.new("TextButton")
-selectClasses.AutoButtonColor = false
-selectClasses.BackgroundColor3 = OFF
-selectClasses.BorderSizePixel = 0
-selectClasses.Text = "Choose Classes  ▼"
-selectClasses.Font = Enum.Font.GothamMedium
-selectClasses.TextSize = 12
-selectClasses.TextColor3 = WHITE
-selectClasses.AnchorPoint = Vector2.new(1, 0)
-selectClasses.Position = UDim2.new(1, -16, 0, 92)
-selectClasses.Size = UDim2.fromOffset(145, 34)
-selectClasses.ZIndex = 20
-selectClasses.Parent = homeCard
-corner(selectClasses, 8)
-stroke(selectClasses, LINE, 1)
+local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
+local selectedClasses = {}
+local classStatus = label(homeCard, "Selected classes: 0", 13, GRAY, UDim2.fromOffset(16, 88), UDim2.fromOffset(250, 22), Enum.Font.Gotham)
+local classButton = Instance.new("TextButton")
+classButton.AutoButtonColor = false
+classButton.BackgroundColor3 = OFF
+classButton.Text = "Choose Classes"
+classButton.Font = Enum.Font.GothamMedium
+classButton.TextSize = 14
+classButton.TextColor3 = WHITE
+classButton.Position = UDim2.fromOffset(16, 116)
+classButton.Size = UDim2.fromOffset(190, 36)
+classButton.Parent = homeCard
+corner(classButton, 8)
 
-local rollClass = Instance.new("TextButton")
-rollClass.AutoButtonColor = false
-rollClass.BackgroundColor3 = OFF
-rollClass.BorderSizePixel = 0
-rollClass.Text = "ROLL CLASSES"
-rollClass.Font = Enum.Font.GothamBold
-rollClass.TextSize = 12
-rollClass.TextColor3 = WHITE
-rollClass.AnchorPoint = Vector2.new(1, 0)
-rollClass.Position = UDim2.new(1, -16, 0, 138)
-rollClass.Size = UDim2.fromOffset(145, 34)
-rollClass.Parent = homeCard
-corner(rollClass, 8)
-stroke(rollClass, LINE, 1)
-
--- Cleaner class picker panel
-local classDropdown = Instance.new("Frame")
-classDropdown.Name = "ClassPicker"
-classDropdown.BackgroundColor3 = CARD
-classDropdown.BorderSizePixel = 0
-classDropdown.Position = UDim2.fromOffset(12, 176)
-classDropdown.Size = UDim2.new(1, -24, 0, 230)
-classDropdown.Visible = false
-classDropdown.ZIndex = 100
-classDropdown.Parent = homeCard
-corner(classDropdown, 10)
-stroke(classDropdown, LINE, 1)
-
-local pickerTitle = label(classDropdown, "Select classes", 13, WHITE, UDim2.fromOffset(12, 8), UDim2.fromOffset(150, 22), Enum.Font.GothamBold)
-pickerTitle.ZIndex = 101
-
+local classPopup = frame(homePage, CARD, UDim2.fromOffset(18, 94), UDim2.fromOffset(360, 220))
+classPopup.Visible = false
+classPopup.ZIndex = 20
+corner(classPopup, 10)
+stroke(classPopup, LINE, 1)
+label(classPopup, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(180, 24), Enum.Font.GothamBold).ZIndex = 21
+local classList = Instance.new("ScrollingFrame")
+classList.BackgroundTransparency = 1
+classList.BorderSizePixel = 0
+classList.Position = UDim2.fromOffset(10, 42)
+classList.Size = UDim2.fromOffset(340, 140)
+classList.ScrollBarThickness = 4
+classList.CanvasSize = UDim2.fromOffset(0, #classes * 32)
+classList.ZIndex = 21
+classList.Parent = classPopup
+local classLayout = Instance.new("UIListLayout")
+classLayout.Padding = UDim.new(0, 3)
+classLayout.Parent = classList
 local clearClasses = Instance.new("TextButton")
 clearClasses.AutoButtonColor = false
 clearClasses.BackgroundColor3 = OFF
-clearClasses.BorderSizePixel = 0
 clearClasses.Text = "Clear"
 clearClasses.Font = Enum.Font.GothamMedium
-clearClasses.TextSize = 11
-clearClasses.TextColor3 = GRAY
-clearClasses.Position = UDim2.new(1, -72, 0, 7)
-clearClasses.Size = UDim2.fromOffset(60, 24)
-clearClasses.ZIndex = 101
-clearClasses.Parent = classDropdown
-corner(clearClasses, 6)
+clearClasses.TextSize = 13
+clearClasses.TextColor3 = WHITE
+clearClasses.Position = UDim2.fromOffset(250, 188)
+clearClasses.Size = UDim2.fromOffset(90, 26)
+clearClasses.ZIndex = 22
+clearClasses.Parent = classPopup
+corner(clearClasses, 7)
 
-local classList = Instance.new("ScrollingFrame")
-classList.Name = "ClassList"
-classList.BackgroundTransparency = 1
-classList.BorderSizePixel = 0
-classList.ScrollBarThickness = 3
-classList.ScrollBarImageColor3 = GRAY
-classList.Position = UDim2.fromOffset(8, 38)
-classList.Size = UDim2.new(1, -16, 1, -46)
-classList.CanvasSize = UDim2.new(0, 0, 0, #classes * 34)
-classList.ZIndex = 101
-classList.Parent = classDropdown
-
-local classLayout = Instance.new("UIListLayout")
-classLayout.Padding = UDim.new(0, 4)
-classLayout.Parent = classList
-
-local classButtons = {}
-local function updateSelectedCount()
-	local count = 0
-	for _ in pairs(selectedClasses) do count += 1 end
-	selectedCount.Text = count == 0 and "0 selected" or (count .. " selected")
-	selectClasses.Text = count == 0 and "Choose Classes  ▼" or (count .. " Classes  ▼")
+local function updateClassCount()
+    local n = 0
+    for _ in pairs(selectedClasses) do n += 1 end
+    classStatus.Text = "Selected classes: " .. n
 end
-
-for _, className in ipairs(classes) do
-	local b = Instance.new("TextButton")
-	b.Name = className:gsub("%s+", "")
-	b.AutoButtonColor = false
-	b.BackgroundColor3 = OFF
-	b.BorderSizePixel = 0
-	b.Text = "  " .. className
-	b.TextXAlignment = Enum.TextXAlignment.Left
-	b.Font = Enum.Font.GothamMedium
-	b.TextSize = 12
-	b.TextColor3 = WHITE
-	b.Size = UDim2.new(1, -2, 0, 30)
-	b.ZIndex = 102
-	b.Parent = classList
-	corner(b, 7)
-	classButtons[className] = b
-
-	b.MouseButton1Click:Connect(function()
-		selectedClasses[className] = not selectedClasses[className] or nil
-		if selectedClasses[className] then
-			b.Text = "  ✓  " .. className
-			b.TextColor3 = WHITE
-			b.BackgroundColor3 = RED_DARK
-		else
-			b.Text = "  " .. className
-			b.TextColor3 = WHITE
-			b.BackgroundColor3 = OFF
-		end
-		updateSelectedCount()
-	end)
+for _, name in ipairs(classes) do
+    local b = Instance.new("TextButton")
+    b.AutoButtonColor = false
+    b.BackgroundColor3 = OFF
+    b.Text = "□ " .. name
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 13
+    b.TextColor3 = WHITE
+    b.TextXAlignment = Enum.TextXAlignment.Left
+    b.Size = UDim2.new(1, -6, 0, 29)
+    b.ZIndex = 22
+    b.Parent = classList
+    corner(b, 6)
+    b.MouseButton1Click:Connect(function()
+        selectedClasses[name] = not selectedClasses[name] and true or nil
+        b.Text = (selectedClasses[name] and "✓ " or "□ ") .. name
+        b.BackgroundColor3 = selectedClasses[name] and RED_DARK or OFF
+        updateClassCount()
+    end)
 end
-
 clearClasses.MouseButton1Click:Connect(function()
-	for className, b in pairs(classButtons) do
-		selectedClasses[className] = nil
-		b.Text = "  " .. className
-		b.BackgroundColor3 = OFF
-	end
-	updateSelectedCount()
+    table.clear(selectedClasses)
+    for _, b in ipairs(classList:GetChildren()) do
+        if b:IsA("TextButton") then b.Text = "□ " .. b.Text:gsub("^[✓□] ", ""); b.BackgroundColor3 = OFF end
+    end
+    updateClassCount()
+end)
+classButton.MouseButton1Click:Connect(function() classPopup.Visible = not classPopup.Visible end)
+
+local rollButton = Instance.new("TextButton")
+rollButton.AutoButtonColor = false
+rollButton.BackgroundColor3 = OFF
+rollButton.Text = "Roll Selected"
+rollButton.Font = Enum.Font.GothamMedium
+rollButton.TextSize = 14
+rollButton.TextColor3 = WHITE
+rollButton.Position = UDim2.fromOffset(216, 116)
+rollButton.Size = UDim2.fromOffset(190, 36)
+rollButton.Parent = homeCard
+corner(rollButton, 8)
+local rolling = false
+rollButton.MouseButton1Click:Connect(function()
+    local count = 0
+    for _ in pairs(selectedClasses) do count += 1 end
+    if count == 0 then rollButton.Text = "Select a class"; task.delay(1, function() if not rolling then rollButton.Text = "Roll Selected" end end); return end
+    rolling = not rolling
+    rollButton.Text = rolling and "Rolling..." or "Roll Selected"
+    rollButton.BackgroundColor3 = rolling and RED_DARK or OFF
+    if rolling then
+        task.spawn(function()
+            local event = ReplicatedStorage:FindFirstChild("ClassSystem") and ReplicatedStorage.ClassSystem:FindFirstChild("RollClass")
+            while rolling and event do
+                local ok, result = pcall(function() return event:InvokeServer() end)
+                if ok and type(result) == "table" and selectedClasses[result.className] then
+                    rolling = false
+                    rollButton.Text = "FOUND: " .. tostring(result.className)
+                    rollButton.BackgroundColor3 = RED
+                    break
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
 end)
 
-selectClasses.MouseButton1Click:Connect(function()
-	classDropdown.Visible = not classDropdown.Visible
-	selectClasses.Text = classDropdown.Visible and "Close  ▲" or "Choose Classes  ▼"
-	if classDropdown.Visible then
-		-- Keep the picker above the rest of Home content.
-		classDropdown.ZIndex = 100
-	end
-end)
+-- ===== Main Farm: Auto Pick Needle =====
+local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle collection.")
+local needleAuto = false
+local needleCharacter, needleHumanoid, needleRoot
+local needleFlyConnection, needleCameraConnection
+local needleCameraFocused = false
+local needleFlying = false
+local needleSpeed = 50
+local needleInteractions = 3
 
-rollClass.MouseButton1Click:Connect(function()
-	if classRolling then
-		classRolling = false
-		rollClass.Text = "ROLL CLASSES"
-		rollClass.BackgroundColor3 = OFF
-		return
-	end
-	local count = 0
-	for _ in pairs(selectedClasses) do count += 1 end
-	if count == 0 then
-		rollClass.Text = "SELECT FIRST"
-		rollClass.BackgroundColor3 = RED
-		task.delay(0.8, function()
-			if not classRolling then
-				rollClass.Text = "ROLL CLASSES"
-				rollClass.BackgroundColor3 = OFF
-			end
-		end)
-		return
-	end
-	classRolling = true
-	rollClass.Text = "ROLLING..."
-	rollClass.BackgroundColor3 = RED
-end)
-
-task.spawn(function()
-	local Event = ReplicatedStorage:WaitForChild("ClassSystem"):WaitForChild("RollClass")
-	while gui.Parent do
-		task.wait(0.1)
-		if classRolling then
-			local ok, result = pcall(function() return Event:InvokeServer() end)
-			if ok and type(result) == "table" and selectedClasses[result.className] then
-				classRolling = false
-				rollClass.Text = "✓ FOUND: " .. tostring(result.className)
-				rollClass.BackgroundColor3 = RED
-			end
-		end
-	end
-end)
-
--- Read the game's existing gem counter when available.
-task.spawn(function()
-	local ok, statsUI = pcall(function() return playerGui:WaitForChild("PlayerStatsUI", 10) end)
-	if not ok or not statsUI then return end
-	local ok2, gemLabel = pcall(function()
-		return statsUI:WaitForChild("Frame", 10):WaitForChild("GemFrame", 10):WaitForChild("GemLabel", 10)
-	end)
-	if not ok2 or not gemLabel then return end
-	while gui.Parent do
-		homeGems.Text = "💎 Gems: " .. gemLabel.Text
-		task.wait(0.2)
-	end
-end)
-
--- ===== Visuals page =====
-local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle ESP.")
-
-local needleESPEnabled = false
-local needleESPHighlight
-local needleESPConnection
-
-local function removeNeedleESP()
-	if needleESPConnection then
-		needleESPConnection:Disconnect()
-		needleESPConnection = nil
-	end
-	if needleESPHighlight then
-		needleESPHighlight:Destroy()
-		needleESPHighlight = nil
-	end
+local function refreshNeedleCharacter(char)
+    needleCharacter = char
+    needleHumanoid = char and char:FindFirstChildOfClass("Humanoid")
+    needleRoot = char and char:FindFirstChild("HumanoidRootPart")
 end
+refreshNeedleCharacter(player.Character or player.CharacterAdded:Wait())
 
-local function createNeedleESP()
-	removeNeedleESP()
-	local target = workspace:FindFirstChild("Needle", true)
-	local main = workspace:FindFirstChild("Main")
-	if main then target = main:FindFirstChild("Needle") or target end
-	if not target then return end
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "NeedleESP"
-	highlight.Adornee = target
-	highlight.FillColor = Color3.fromRGB(255, 0, 0)
-	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-	highlight.FillTransparency = 0.3
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Parent = target
-	needleESPHighlight = highlight
-
-	needleESPConnection = workspace.DescendantAdded:Connect(function(obj)
-		if needleESPEnabled and obj.Name == "Needle" then
-			task.wait()
-			if not needleESPHighlight or not needleESPHighlight.Parent then
-				createNeedleESP()
-			end
-		end
-	end)
+local function getNeedle()
+    local mainFolder = workspace:FindFirstChild("Main")
+    local n = mainFolder and mainFolder:FindFirstChild("Needle")
+    return n
 end
+local function getNeedlePart(n)
+    if not n then return nil end
+    if n:IsA("BasePart") then return n end
+    if n.PrimaryPart then return n.PrimaryPart end
+    return n:FindFirstChildWhichIsA("BasePart", true)
+end
+local function stopNeedleFly()
+    needleFlying = false
+    if needleFlyConnection then needleFlyConnection:Disconnect(); needleFlyConnection = nil end
+    if needleRoot then
+        local bv = needleRoot:FindFirstChild("NeedleFlyVelocity")
+        if bv then bv:Destroy() end
+        local bg = needleRoot:FindFirstChild("NeedleFlyGyro")
+        if bg then bg:Destroy() end
+    end
+end
+local function forcePlayerCamera()
+    local cam = workspace.CurrentCamera
+    if cam and needleHumanoid then cam.CameraType = Enum.CameraType.Custom; cam.CameraSubject = needleHumanoid end
+end
+local function stopNeedleCamera()
+    needleCameraFocused = false
+    if needleCameraConnection then needleCameraConnection:Disconnect(); needleCameraConnection = nil end
+    forcePlayerCamera()
+end
+local function startNeedleFly()
+    if not needleRoot then return end
+    stopNeedleFly()
+    needleFlying = true
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "NeedleFlyVelocity"
+    bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    bv.Parent = needleRoot
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "NeedleFlyGyro"
+    bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    bg.Parent = needleRoot
+    if needleHumanoid then needleHumanoid.PlatformStand = true end
+    needleFlyConnection = RunService.RenderStepped:Connect(function()
+        if not needleFlying or not needleRoot or not needleRoot.Parent then return end
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += cam.CFrame.UpVector end
+        if dir.Magnitude > 0 then dir = dir.Unit end
+        bv.Velocity = dir * needleSpeed
+        if dir.Magnitude > 0 then bg.CFrame = needleRoot.CFrame:Lerp(CFrame.lookAt(needleRoot.Position, needleRoot.Position + dir), 0.3) end
+    end)
+end
+local function focusNeedleCamera()
+    if needleCameraConnection then needleCameraConnection:Disconnect() end
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    needleCameraFocused = true
+    cam.CameraType = Enum.CameraType.Scriptable
+    needleCameraConnection = RunService.RenderStepped:Connect(function()
+        if not needleCameraFocused then return end
+        local part = getNeedlePart(getNeedle())
+        if not part or not needleRoot then return end
+        local camNow = workspace.CurrentCamera
+        if camNow then camNow.CFrame = CFrame.lookAt(needleRoot.Position + Vector3.new(0, 2, 5), part.Position) end
+    end)
+end
+local function pressNeedleE()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
+end
+local function autoPickNeedleOnce()
+    refreshNeedleCharacter(player.Character)
+    if not needleRoot then return end
+    local part = getNeedlePart(getNeedle())
+    if not part then return end
+    local pos = part.Position - part.CFrame.LookVector * 3
+    needleRoot.CFrame = CFrame.lookAt(Vector3.new(pos.X, part.Position.Y, pos.Z), part.Position)
+    focusNeedleCamera()
+    for _ = 1, needleInteractions do
+        if not needleAuto then break end
+        pressNeedleE()
+        task.wait(0.1)
+    end
+    stopNeedleCamera()
+    if needleAuto then startNeedleFly() end
+end
+local function startAutoNeedleLoop()
+    task.spawn(function()
+        while needleAuto and gui.Parent do
+            pcall(autoPickNeedleOnce)
+            task.wait(0.5)
+        end
+    end)
+end
+local function stopAutoNeedle()
+    stopNeedleFly()
+    stopNeedleCamera()
+    if needleHumanoid then needleHumanoid.PlatformStand = false end
+end
+makeToggle(combatCard, "Auto Pick Needle", 1, function(on)
+    needleAuto = on
+    if on then startAutoNeedleLoop() else stopAutoNeedle() end
+end)
+label(combatCard, "Automatically goes to the Needle and interacts with it.", 12, GRAY, UDim2.fromOffset(16, 52), UDim2.new(1, -32, 0, 34), Enum.Font.Gotham)
 
+player.CharacterAdded:Connect(function(char)
+    refreshNeedleCharacter(char)
+    task.wait(0.5)
+    if needleAuto then startAutoNeedleLoop() end
+end)
+
+-- ===== Visuals: Needle ESP =====
+local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle highlighting.")
+local needleHighlight
+local needleESP = false
+local function removeNeedleHighlight()
+    if needleHighlight then needleHighlight:Destroy(); needleHighlight = nil end
+end
+local function applyNeedleHighlight()
+    removeNeedleHighlight()
+    if not needleESP then return end
+    local n = getNeedle()
+    if not n then return end
+    local h = Instance.new("Highlight")
+    h.Name = "NeedleESP"
+    h.Adornee = n
+    h.FillColor = Color3.fromRGB(255, 0, 0)
+    h.OutlineColor = Color3.fromRGB(255, 255, 255)
+    h.FillTransparency = 0.3
+    h.OutlineTransparency = 0
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = n
+    needleHighlight = h
+end
 makeToggle(visualsCard, "Needle ESP", 1, function(on)
-	needleESPEnabled = on
-	if on then
-		createNeedleESP()
-	else
-		removeNeedleESP()
-	end
+    needleESP = on
+    if on then applyNeedleHighlight() else removeNeedleHighlight() end
+end)
+label(visualsCard, "Highlights Workspace.Main.Needle in red.", 12, GRAY, UDim2.fromOffset(16, 52), UDim2.new(1, -32, 0, 30), Enum.Font.Gotham)
+task.spawn(function()
+    while gui.Parent do
+        if needleESP and not needleHighlight then applyNeedleHighlight() end
+        if not getNeedle() and needleHighlight then removeNeedleHighlight() end
+        task.wait(1)
+    end
 end)
 
--- ===== Player page (movement stats moved here from Main Farm) =====
+-- ===== Player page =====
 local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
-makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v)
-	walkSpeed = v
-	applyStats()
+local walkSpeed, jumpPower = 16, 50
+local function getHumanoid()
+    local char = player.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+local function applyStats()
+    local h = getHumanoid()
+    if h then h.WalkSpeed = walkSpeed; h.UseJumpPower = true; h.JumpPower = jumpPower end
+end
+makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v) walkSpeed = v; applyStats() end)
+makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v) jumpPower = v; applyStats() end)
+makeToggle(playerCard, "Infinite Jump", 5, function(on)
+    -- State is intentionally local; movement code can be added here without changing the GUI.
 end)
-makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v)
-	jumpPower = v
-	applyStats()
-end)
-makeToggle(playerCard, "Infinite Jump", 5, function(on) end) -- index 5 leaves room below the two sliders above
+player.CharacterAdded:Connect(function() task.wait(0.5); applyStats() end)
 
 -- ===== Teleports page =====
 local teleportsPage, teleportsCard = makePage("Teleports", "Teleports", "Jump to key locations.")
-local TELEPORT_SPOTS = { "Spawn", "Shop", "Farm", "Base" }
-for i, spotName in ipairs(TELEPORT_SPOTS) do
-	local y = 12 + (i - 1) * 46
-	local tBtn = Instance.new("TextButton")
-	tBtn.AutoButtonColor = false
-	tBtn.BackgroundColor3 = OFF
-	tBtn.BorderSizePixel = 0
-	tBtn.Text = spotName
-	tBtn.Font = Enum.Font.GothamMedium
-	tBtn.TextSize = 15
-	tBtn.TextColor3 = WHITE
-	tBtn.Position = UDim2.fromOffset(16, y)
-	tBtn.Size = UDim2.new(1, -32, 0, 36)
-	tBtn.Parent = teleportsCard
-	corner(tBtn, 8)
-	tBtn.MouseButton1Click:Connect(function()
-		-- Add your own CFrame teleport logic here, e.g.:
-		-- local char = player.Character
-		-- if char then char:PivotTo(CFrame.new(0, 5, 0)) end
-	end)
+for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
+    local y = 12 + (i - 1) * 46
+    local tBtn = Instance.new("TextButton")
+    tBtn.AutoButtonColor = false
+    tBtn.BackgroundColor3 = OFF
+    tBtn.BorderSizePixel = 0
+    tBtn.Text = spotName
+    tBtn.Font = Enum.Font.GothamMedium
+    tBtn.TextSize = 15
+    tBtn.TextColor3 = WHITE
+    tBtn.Position = UDim2.fromOffset(16, y)
+    tBtn.Size = UDim2.new(1, -32, 0, 36)
+    tBtn.Parent = teleportsCard
+    corner(tBtn, 8)
 end
 
--- selectTab depends on all pages existing, so call it last
+-- ===== Misc / Anti-AFK + GUI Size =====
+local settingsPage, settingsCard = makePage("Misc", "Misc", "General settings and AFK protection.")
+makeSlider(settingsCard, "GUI Size", 12, 50, 150, 100, function(v)
+    userGuiScale = v / 100
+    updateScale()
+end)
+label(settingsCard, "Anti-AFK is always ON.", 14, WHITE, UDim2.fromOffset(16, 82), UDim2.fromOffset(260, 24), Enum.Font.GothamMedium)
+label(settingsCard, "Prevents the game from idling you out.", 12, GRAY, UDim2.fromOffset(16, 106), UDim2.fromOffset(340, 22), Enum.Font.Gotham)
+
+player.Idled:Connect(function()
+    pcall(function()
+        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
+    end)
+end)
+
+-- Gems display from PlayerStatsUI, when available
+task.spawn(function()
+    while gui.Parent do
+        local ok, textValue = pcall(function()
+            local statsUI = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("PlayerStatsUI")
+            local gemLabel = statsUI and statsUI:FindFirstChild("Frame") and statsUI.Frame:FindFirstChild("GemFrame") and statsUI.Frame.GemFrame:FindFirstChild("GemLabel")
+            return gemLabel and gemLabel.Text
+        end)
+        if ok and textValue then gemsDisplay.Text = "Gems: " .. tostring(textValue) end
+        task.wait(0.25)
+    end
+end)
+
+-- Show Home after every page has been created.
 selectTab("Home")
