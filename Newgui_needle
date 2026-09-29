@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 
@@ -297,160 +298,213 @@ combatPage.Size = UDim2.fromScale(1, 1)
 combatPage.Parent = content
 pages.Combat = combatPage
 
--- Section header card
 local head = frame(combatPage, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
 corner(head, 10)
 stroke(head, LINE, 1)
 makeIcon(head, ICONS.Combat, RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
 label(head, "Main Farm", 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
-label(head, "Auto farm, auto collect and more.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
-label(head, ">", 18, GRAY, UDim2.new(1, -34, 0, 0), UDim2.fromOffset(20, 54), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+label(head, "Needle automation.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
 
--- Options card
 local card = frame(combatPage, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
 corner(card, 10)
 stroke(card, LINE, 1)
 
--- Toggle
-local function makeToggle(parent, text, index, callback)
-	local y = 4 + (index - 1) * 38
-	label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
+-- Auto Pick Needle backend
+local AutoPickNeedle = false
+local needleCharacter, needleHumanoid, needleRootPart
+local needle, needlePrompt
+local needleFlyConnection
+local needleCameraConnection
+local needleFlying = false
+local needleCameraFocused = false
+local NEEDLE_FLY_SPEED = 25
+local NEEDLE_DISTANCE_BEHIND = 3
+local NEEDLE_INTERACTIONS = 3
 
-	local bg = Instance.new("TextButton")
-	bg.AutoButtonColor = false
-	bg.Text = ""
-	bg.BackgroundColor3 = OFF
-	bg.BorderSizePixel = 0
-	bg.AnchorPoint = Vector2.new(1, 0)
-	bg.Position = UDim2.new(1, -16, 0, y + 8)
-	bg.Size = UDim2.fromOffset(52, 24)
-	bg.Parent = parent
-	corner(bg, 12)
-
-	local knob = Instance.new("Frame")
-	knob.BackgroundColor3 = GRAY
-	knob.BorderSizePixel = 0
-	knob.Position = UDim2.fromOffset(3, 3)
-	knob.Size = UDim2.fromOffset(18, 18)
-	knob.Parent = bg
-	corner(knob, 9)
-
-	if index < 4 then
-		frame(parent, LINE, UDim2.fromOffset(16, y + 37), UDim2.new(1, -32, 0, 1))
-	end
-
-	local state = false
-	bg.MouseButton1Click:Connect(function()
-		state = not state
-		local info = TweenInfo.new(0.15)
-		TweenService:Create(bg, info, { BackgroundColor3 = state and RED or OFF }):Play()
-		TweenService:Create(knob, info, {
-			Position = state and UDim2.fromOffset(31, 3) or UDim2.fromOffset(3, 3),
-			BackgroundColor3 = state and WHITE or GRAY,
-		}):Play()
-		callback(state)
-	end)
-	return function() return state end
-end
-
--- Toggles (add your own logic inside each callback)
-makeToggle(card, "Kill Aura", 1, function(on) end)
-makeToggle(card, "Auto Clicker", 2, function(on) end)
-makeToggle(card, "Hitbox Expander", 3, function(on) end)
-makeToggle(card, "Silent Aim", 4, function(on) end)
-
--- Slider
-local function makeSlider(parent, text, y, min, max, default, callback)
-	label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.fromOffset(200, 24), Enum.Font.Gotham)
-
-	local track = frame(parent, Color3.fromRGB(28, 28, 34), UDim2.fromOffset(16, y + 34), UDim2.new(1, -112, 0, 6))
-	corner(track, 3)
-	local fill = frame(track, RED, UDim2.fromOffset(0, 0), UDim2.new(0, 0, 1, 0))
-	corner(fill, 3)
-	local knob = frame(track, RED, UDim2.new(0, 0, 0.5, 0), UDim2.fromOffset(18, 18))
-	knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	corner(knob, 9)
-
-	local valueBox = Instance.new("TextBox")
-	valueBox.BackgroundColor3 = BG
-	valueBox.BorderSizePixel = 0
-	valueBox.AnchorPoint = Vector2.new(1, 0)
-	valueBox.Position = UDim2.new(1, -16, 0, y + 12)
-	valueBox.Size = UDim2.fromOffset(62, 32)
-	valueBox.Font = Enum.Font.Gotham
-	valueBox.TextSize = 17
-	valueBox.TextColor3 = WHITE
-	valueBox.ClearTextOnFocus = false
-	valueBox.Parent = parent
-	corner(valueBox, 6)
-	stroke(valueBox, LINE, 1)
-
-	local function setValue(v, fire)
-		v = math.clamp(math.floor(v + 0.5), min, max)
-		local rel = (v - min) / (max - min)
-		fill.Size = UDim2.new(rel, 0, 1, 0)
-		knob.Position = UDim2.new(rel, 0, 0.5, 0)
-		valueBox.Text = tostring(v)
-		if fire then callback(v) end
-	end
-	setValue(default, false)
-
-	local hit = Instance.new("TextButton")
-	hit.BackgroundTransparency = 1
-	hit.Text = ""
-	hit.Position = UDim2.fromOffset(-6, -10)
-	hit.Size = UDim2.new(1, 12, 1, 20)
-	hit.Parent = track
-
-	local dragging = false
-	local function fromX(x)
-		local rel = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-		setValue(min + (max - min) * rel, true)
-	end
-	hit.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			fromX(i.Position.X)
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-			fromX(i.Position.X)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
-	valueBox.FocusLost:Connect(function()
-		local n = tonumber(valueBox.Text)
-		setValue(n or default, true)
-	end)
-end
-
-local function humanoid()
+local function needleGetCharacter()
 	local char = player.Character
-	return char and char:FindFirstChildOfClass("Humanoid")
+	if not char then return false end
+	needleCharacter = char
+	needleHumanoid = char:FindFirstChildOfClass("Humanoid")
+	needleRootPart = char:FindFirstChild("HumanoidRootPart")
+	return needleHumanoid ~= nil and needleRootPart ~= nil
 end
 
-local walkSpeed, jumpPower = 16, 50
+local function getNeedle()
+	local main = workspace:FindFirstChild("Main")
+	if main then
+		needle = main:FindFirstChild("Needle")
+		if needle then
+			needlePrompt = needle:FindFirstChild("NeedlePrompt", true)
+		end
+	end
+	return needle
+end
 
-local function applyStats()
-	local h = humanoid()
-	if h then
-		h.WalkSpeed = walkSpeed
-		h.UseJumpPower = true
-		h.JumpPower = jumpPower
+local function getNeedlePart()
+	if not needle or not needle.Parent then return nil end
+	if needle:IsA("BasePart") then return needle end
+	if needle.PrimaryPart then return needle.PrimaryPart end
+	return needle:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function stopNeedleFly()
+	needleFlying = false
+	if needleFlyConnection then
+		needleFlyConnection:Disconnect()
+		needleFlyConnection = nil
+	end
+	if needleRootPart then
+		for _, obj in ipairs(needleRootPart:GetChildren()) do
+			if obj.Name == "NeedleFlyVelocity" or obj.Name == "NeedleFlyGyro" then
+				obj:Destroy()
+			end
+		end
+	end
+	if needleHumanoid then
+		needleHumanoid.PlatformStand = false
 	end
 end
 
-player.CharacterAdded:Connect(function()
-	task.wait(0.5)
-	applyStats()
+local function startNeedleFly()
+	if not needleGetCharacter() then return end
+	stopNeedleFly()
+	needleFlying = true
+	needleHumanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+	needleHumanoid.PlatformStand = true
+
+	local bv = Instance.new("BodyVelocity")
+	bv.Name = "NeedleFlyVelocity"
+	bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+	bv.Velocity = Vector3.zero
+	bv.Parent = needleRootPart
+
+	local bg = Instance.new("BodyGyro")
+	bg.Name = "NeedleFlyGyro"
+	bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+	bg.P = 9000
+	bg.CFrame = needleRootPart.CFrame
+	bg.Parent = needleRootPart
+
+	needleFlyConnection = RunService.RenderStepped:Connect(function()
+		if not AutoPickNeedle or not needleFlying or not needleRootPart or not needleRootPart.Parent then return end
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+		local cf = cam.CFrame
+		local dir = Vector3.zero
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cf.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cf.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cf.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cf.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += cf.UpVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= cf.UpVector end
+		if dir.Magnitude > 0 then dir = dir.Unit end
+		bv.Velocity = dir * NEEDLE_FLY_SPEED
+		if dir.Magnitude > 0 then
+			bg.CFrame = needleRootPart.CFrame:Lerp(CFrame.lookAt(needleRootPart.Position, needleRootPart.Position + dir), 0.3)
+		end
+	end)
+end
+
+local function forceNeedleCamera()
+	local cam = workspace.CurrentCamera
+	if cam and needleHumanoid and needleHumanoid.Parent then
+		cam.CameraType = Enum.CameraType.Custom
+		cam.CameraSubject = needleHumanoid
+	end
+end
+
+local function focusNeedleCamera()
+	if needleCameraConnection then needleCameraConnection:Disconnect() end
+	local cam = workspace.CurrentCamera
+	local part = getNeedlePart()
+	if not cam or not part or not needleRootPart then return end
+	needleCameraFocused = true
+	cam.CameraType = Enum.CameraType.Scriptable
+	needleCameraConnection = RunService.RenderStepped:Connect(function()
+		if not AutoPickNeedle or not needleCameraFocused then return end
+		local currentPart = getNeedlePart()
+		local currentCam = workspace.CurrentCamera
+		if currentCam and currentPart and needleRootPart then
+			local camPos = needleRootPart.Position + Vector3.new(0, 2, 5)
+			currentCam.CFrame = CFrame.lookAt(camPos, currentPart.Position)
+		end
+	end)
+end
+
+local function unfocusNeedleCamera()
+	needleCameraFocused = false
+	if needleCameraConnection then
+		needleCameraConnection:Disconnect()
+		needleCameraConnection = nil
+	end
+	forceNeedleCamera()
+end
+
+local function needleTeleport()
+	local part = getNeedlePart()
+	if not part or not needleRootPart then return false end
+	local backward = -part.CFrame.LookVector
+	local pos = part.Position + backward * NEEDLE_DISTANCE_BEHIND
+	pos = Vector3.new(pos.X, part.Position.Y, pos.Z)
+	needleRootPart.CFrame = CFrame.lookAt(pos, part.Position)
+	return true
+end
+
+local function needlePressE()
+	local vim = game:GetService("VirtualInputManager")
+	vim:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
+	task.wait(0.05)
+	vim:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
+end
+
+local function needleInteract()
+	for _ = 1, NEEDLE_INTERACTIONS do
+		if not AutoPickNeedle then return end
+		needlePressE()
+		task.wait(0.1)
+	end
+end
+
+local function runAutoPickNeedle()
+	if not AutoPickNeedle then return end
+	if not needleGetCharacter() then return end
+	if not getNeedle() then return end
+	needleTeleport()
+	focusNeedleCamera()
+	needleInteract()
+	unfocusNeedleCamera()
+	startNeedleFly()
+end
+
+local function stopAutoPickNeedle()
+	AutoPickNeedle = false
+	unfocusNeedleCamera()
+	stopNeedleFly()
+	forceNeedleCamera()
+end
+
+makeToggle(card, "Auto Pick Needle", 1, function(on)
+	if on then
+		AutoPickNeedle = true
+		task.spawn(runAutoPickNeedle)
+	else
+		stopAutoPickNeedle()
+	end
+end)
+
+player.CharacterAdded:Connect(function(char)
+	needleCharacter = char
+	needleHumanoid = char:WaitForChild("Humanoid", 5)
+	needleRootPart = char:WaitForChild("HumanoidRootPart", 5)
+	if AutoPickNeedle then
+		task.wait(0.5)
+		task.spawn(runAutoPickNeedle)
+	end
 end)
 
 -- ===== Settings / Misc page (GUI size control) =====
+ =====
 local settingsPage = Instance.new("Frame")
 settingsPage.BackgroundTransparency = 1
 settingsPage.Size = UDim2.fromScale(1, 1)
@@ -799,11 +853,58 @@ task.spawn(function()
 end)
 
 -- ===== Visuals page =====
-local visualsPage, visualsCard = makePage("Visuals", "Visuals", "ESP and rendering tweaks.")
-makeToggle(visualsCard, "ESP", 1, function(on) end)
-makeToggle(visualsCard, "Fullbright", 2, function(on) end)
-makeToggle(visualsCard, "Chams", 3, function(on) end)
-makeToggle(visualsCard, "Tracers", 4, function(on) end)
+local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle ESP.")
+
+local needleESPEnabled = false
+local needleESPHighlight
+local needleESPConnection
+
+local function removeNeedleESP()
+	if needleESPConnection then
+		needleESPConnection:Disconnect()
+		needleESPConnection = nil
+	end
+	if needleESPHighlight then
+		needleESPHighlight:Destroy()
+		needleESPHighlight = nil
+	end
+end
+
+local function createNeedleESP()
+	removeNeedleESP()
+	local target = workspace:FindFirstChild("Needle", true)
+	local main = workspace:FindFirstChild("Main")
+	if main then target = main:FindFirstChild("Needle") or target end
+	if not target then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "NeedleESP"
+	highlight.Adornee = target
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 0.3
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = target
+	needleESPHighlight = highlight
+
+	needleESPConnection = workspace.DescendantAdded:Connect(function(obj)
+		if needleESPEnabled and obj.Name == "Needle" then
+			task.wait()
+			if not needleESPHighlight or not needleESPHighlight.Parent then
+				createNeedleESP()
+			end
+		end
+	end)
+end
+
+makeToggle(visualsCard, "Needle ESP", 1, function(on)
+	needleESPEnabled = on
+	if on then
+		createNeedleESP()
+	else
+		removeNeedleESP()
+	end
+end)
 
 -- ===== Player page (movement stats moved here from Main Farm) =====
 local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
