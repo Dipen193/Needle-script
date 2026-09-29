@@ -1,0 +1,781 @@
+-- LocalScript: put in StarterPlayer > StarterPlayerScripts
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+
+local player = Players.LocalPlayer
+
+-- ===== Settings =====
+local TITLE = "NEEDLE SCRIPT"
+local SUBTITLE = "https://discord.gg/YtDnm8PtM"
+local CREDIT = "DIPEN"
+
+-- ICON IDS ("rbxassetid://1234567890")
+local CAT_LOGO = "rbxassetid://135741506710099"
+local MIN_ICON = "rbxassetid://71958574652709"
+
+local RED = Color3.fromRGB(255, 25, 25)
+local RED_DARK = Color3.fromRGB(170, 15, 25)
+local BG = Color3.fromRGB(12, 12, 15)
+local CARD = Color3.fromRGB(17, 17, 21)
+local LINE = Color3.fromRGB(38, 38, 46)
+local OFF = Color3.fromRGB(38, 38, 46)
+local GRAY = Color3.fromRGB(160, 160, 175)
+local WHITE = Color3.fromRGB(240, 240, 245)
+
+-- ===== Helpers =====
+local function corner(obj, r)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = obj
+	return c
+end
+
+local function stroke(obj, color, thick)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Thickness = thick
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = obj
+	return s
+end
+
+local function label(parent, text, size, color, pos, sz, font, align)
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Text = text
+	l.TextSize = size
+	l.TextColor3 = color
+	l.Font = font or Enum.Font.Gotham
+	l.Position = pos
+	l.Size = sz
+	l.TextXAlignment = align or Enum.TextXAlignment.Left
+	l.Parent = parent
+	return l
+end
+
+local function frame(parent, color, pos, sz)
+	local f = Instance.new("Frame")
+	f.BackgroundColor3 = color
+	f.BorderSizePixel = 0
+	f.Position = pos
+	f.Size = sz
+	f.Parent = parent
+	return f
+end
+
+local function makeIcon(parent, assetId, color, pos, size)
+	local img = Instance.new("ImageLabel")
+	img.BackgroundTransparency = 1
+	img.Image = assetId
+	img.ImageColor3 = color
+	img.ScaleType = Enum.ScaleType.Fit
+	img.Position = pos
+	img.Size = size
+	img.Parent = parent
+	return img
+end
+
+-- ===== ScreenGui =====
+local playerGui = player:WaitForChild("PlayerGui")
+local old = playerGui:FindFirstChild("ScriptHub")
+if old then old:Destroy() end -- prevents duplicate GUIs stacking if this script runs more than once
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ScriptHub"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999 -- keep this GUI above other GUIs in the game
+gui.Parent = playerGui
+
+local main = frame(gui, BG, UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(640, 420))
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+corner(main, 14)
+local mainStroke = stroke(main, RED, 2)
+
+local scale = Instance.new("UIScale")
+scale.Parent = main
+local userGuiScale = 1
+local function updateScale()
+	local v = workspace.CurrentCamera.ViewportSize
+	local autoFit = math.min(1, v.X / 680, v.Y / 460)
+	scale.Scale = autoFit * userGuiScale
+end
+updateScale()
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+
+-- ===== Header =====
+local header = frame(main, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 64))
+header.BackgroundTransparency = 1
+
+makeIcon(header, CAT_LOGO, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(44, 44))
+label(header, TITLE, 26, WHITE, UDim2.fromOffset(66, 8), UDim2.fromOffset(300, 30), Enum.Font.GothamBold)
+
+-- Discord link: a read-mostly TextBox so the player can tap-and-hold to select + copy it
+-- (Roblox has no built-in "copy to clipboard" call for normal scripts, so this relies on
+-- the player's own phone/OS copy option after selecting the text, same as copying any text.)
+local linkBox = Instance.new("TextBox")
+linkBox.BackgroundTransparency = 1
+linkBox.Text = SUBTITLE
+linkBox.Font = Enum.Font.GothamMedium
+linkBox.TextSize = 13
+linkBox.TextColor3 = GRAY
+linkBox.TextXAlignment = Enum.TextXAlignment.Left
+linkBox.ClearTextOnFocus = false
+linkBox.Position = UDim2.fromOffset(67, 36)
+linkBox.Size = UDim2.fromOffset(300, 18)
+linkBox.Parent = header
+linkBox.FocusLost:Connect(function()
+	-- snap the text back if the player accidentally edited it while selecting
+	linkBox.Text = SUBTITLE
+end)
+
+frame(main, LINE, UDim2.fromOffset(0, 64), UDim2.new(1, 0, 0, 1))
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.BackgroundTransparency = 1
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 22
+closeBtn.TextColor3 = RED
+closeBtn.AnchorPoint = Vector2.new(1, 0)
+closeBtn.Position = UDim2.new(1, -16, 0, 16)
+closeBtn.Size = UDim2.fromOffset(32, 32)
+closeBtn.Parent = header
+
+local minBtn = Instance.new("TextButton")
+minBtn.BackgroundTransparency = 1
+minBtn.Text = "—"
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 22
+minBtn.TextColor3 = RED
+minBtn.AnchorPoint = Vector2.new(1, 0)
+minBtn.Position = UDim2.new(1, -52, 0, 16)
+minBtn.Size = UDim2.fromOffset(32, 32)
+minBtn.Parent = header
+
+-- ===== Body =====
+local body = frame(main, BG, UDim2.fromOffset(0, 65), UDim2.new(1, 0, 1, -65))
+body.BackgroundTransparency = 1
+
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+-- Small floating toggle button: hides/shows the whole GUI window
+local floatBtn = Instance.new("ImageButton")
+floatBtn.Name = "FloatingToggle"
+floatBtn.BackgroundTransparency = 1
+floatBtn.AnchorPoint = Vector2.new(0, 0.5)
+floatBtn.Position = UDim2.fromOffset(20, 300)
+floatBtn.Size = UDim2.fromOffset(48, 48)
+floatBtn.Image = MIN_ICON
+floatBtn.ScaleType = Enum.ScaleType.Fit
+floatBtn.Visible = false
+floatBtn.Parent = gui
+
+minBtn.MouseButton1Click:Connect(function()
+	main.Visible = false
+	floatBtn.Visible = true
+end)
+floatBtn.MouseButton1Click:Connect(function()
+	main.Visible = true
+	floatBtn.Visible = false
+end)
+
+-- Let the floating button be dragged around the screen too
+do
+	local dragging, dragStart, startPos
+	floatBtn.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = i.Position
+			startPos = floatBtn.Position
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local d = i.Position - dragStart
+			floatBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+-- Dragging (mouse + touch)
+do
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = i.Position
+			startPos = main.Position
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local d = (i.Position - dragStart) / scale.Scale
+			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+-- ===== Sidebar =====
+frame(body, LINE, UDim2.fromOffset(180, 0), UDim2.new(0, 1, 1, 0))
+
+local ICONS = {
+	Home = "rbxassetid://133569512170316",
+	Combat = "rbxassetid://86075252657350",
+	Visuals = "rbxassetid://101685064640916",
+	Player = "rbxassetid://88381641494731",
+	Teleports = "rbxassetid://137529167135156",
+	Misc = "rbxassetid://85870986242716",
+}
+
+local tabs = {
+	{ "Home" },
+	{ "Combat" },
+	{ "Visuals" },
+	{ "Player" },
+	{ "Teleports" },
+	{ "Misc" },
+}
+local DISPLAY_NAME = { Combat = "Main Farm" } -- shown text differs from the internal key
+local tabButtons = {}
+local pages = {} -- filled in below once pages exist
+
+local function selectTab(name)
+	for n, b in pairs(tabButtons) do
+		local active = (n == name)
+		TweenService:Create(b, TweenInfo.new(0.15), {
+			BackgroundTransparency = active and 0 or 1,
+		}):Play()
+	end
+	for n, p in pairs(pages) do
+		p.Visible = (n == name)
+	end
+end
+
+for i, t in ipairs(tabs) do
+	local b = Instance.new("TextButton")
+	b.Name = t[1]
+	b.AutoButtonColor = false
+	b.Text = ""
+	b.BackgroundColor3 = RED_DARK
+	b.BackgroundTransparency = 1
+	b.BorderSizePixel = 0
+	b.Position = UDim2.fromOffset(10, 14 + (i - 1) * 50)
+	b.Size = UDim2.fromOffset(160, 42)
+	b.Parent = body
+	corner(b, 8)
+	makeIcon(b, ICONS[t[1]], WHITE, UDim2.fromOffset(16, 9), UDim2.fromOffset(24, 24))
+	label(b, DISPLAY_NAME[t[1]] or t[1], 16, WHITE, UDim2.fromOffset(52, 0), UDim2.new(1, -52, 1, 0), Enum.Font.GothamMedium)
+	b.MouseButton1Click:Connect(function() selectTab(t[1]) end)
+	tabButtons[t[1]] = b
+end
+
+label(body, "Made by ", 13, GRAY, UDim2.fromOffset(20, 326), UDim2.fromOffset(60, 20), Enum.Font.Gotham)
+label(body, CREDIT, 13, RED, UDim2.fromOffset(74, 326), UDim2.fromOffset(100, 20), Enum.Font.GothamBold)
+
+-- ===== Content =====
+local content = frame(body, BG, UDim2.fromOffset(192, 10), UDim2.fromOffset(436, 336))
+content.BackgroundTransparency = 1
+
+-- Main Farm page
+local combatPage = Instance.new("Frame")
+combatPage.BackgroundTransparency = 1
+combatPage.Size = UDim2.fromScale(1, 1)
+combatPage.Parent = content
+pages.Combat = combatPage
+
+-- Section header card
+local head = frame(combatPage, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
+corner(head, 10)
+stroke(head, LINE, 1)
+makeIcon(head, ICONS.Combat, RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
+label(head, "Main Farm", 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
+label(head, "Auto farm, auto collect and more.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
+label(head, ">", 18, GRAY, UDim2.new(1, -34, 0, 0), UDim2.fromOffset(20, 54), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+
+-- Options card
+local card = frame(combatPage, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
+corner(card, 10)
+stroke(card, LINE, 1)
+
+-- Toggle
+local function makeToggle(parent, text, index, callback)
+	local y = 4 + (index - 1) * 38
+	label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
+
+	local bg = Instance.new("TextButton")
+	bg.AutoButtonColor = false
+	bg.Text = ""
+	bg.BackgroundColor3 = OFF
+	bg.BorderSizePixel = 0
+	bg.AnchorPoint = Vector2.new(1, 0)
+	bg.Position = UDim2.new(1, -16, 0, y + 8)
+	bg.Size = UDim2.fromOffset(52, 24)
+	bg.Parent = parent
+	corner(bg, 12)
+
+	local knob = Instance.new("Frame")
+	knob.BackgroundColor3 = GRAY
+	knob.BorderSizePixel = 0
+	knob.Position = UDim2.fromOffset(3, 3)
+	knob.Size = UDim2.fromOffset(18, 18)
+	knob.Parent = bg
+	corner(knob, 9)
+
+	if index < 4 then
+		frame(parent, LINE, UDim2.fromOffset(16, y + 37), UDim2.new(1, -32, 0, 1))
+	end
+
+	local state = false
+	bg.MouseButton1Click:Connect(function()
+		state = not state
+		local info = TweenInfo.new(0.15)
+		TweenService:Create(bg, info, { BackgroundColor3 = state and RED or OFF }):Play()
+		TweenService:Create(knob, info, {
+			Position = state and UDim2.fromOffset(31, 3) or UDim2.fromOffset(3, 3),
+			BackgroundColor3 = state and WHITE or GRAY,
+		}):Play()
+		callback(state)
+	end)
+	return function() return state end
+end
+
+-- Toggles (add your own logic inside each callback)
+makeToggle(card, "Kill Aura", 1, function(on) end)
+makeToggle(card, "Auto Clicker", 2, function(on) end)
+makeToggle(card, "Hitbox Expander", 3, function(on) end)
+makeToggle(card, "Silent Aim", 4, function(on) end)
+
+-- Slider
+local function makeSlider(parent, text, y, min, max, default, callback)
+	label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.fromOffset(200, 24), Enum.Font.Gotham)
+
+	local track = frame(parent, Color3.fromRGB(28, 28, 34), UDim2.fromOffset(16, y + 34), UDim2.new(1, -112, 0, 6))
+	corner(track, 3)
+	local fill = frame(track, RED, UDim2.fromOffset(0, 0), UDim2.new(0, 0, 1, 0))
+	corner(fill, 3)
+	local knob = frame(track, RED, UDim2.new(0, 0, 0.5, 0), UDim2.fromOffset(18, 18))
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	corner(knob, 9)
+
+	local valueBox = Instance.new("TextBox")
+	valueBox.BackgroundColor3 = BG
+	valueBox.BorderSizePixel = 0
+	valueBox.AnchorPoint = Vector2.new(1, 0)
+	valueBox.Position = UDim2.new(1, -16, 0, y + 12)
+	valueBox.Size = UDim2.fromOffset(62, 32)
+	valueBox.Font = Enum.Font.Gotham
+	valueBox.TextSize = 17
+	valueBox.TextColor3 = WHITE
+	valueBox.ClearTextOnFocus = false
+	valueBox.Parent = parent
+	corner(valueBox, 6)
+	stroke(valueBox, LINE, 1)
+
+	local function setValue(v, fire)
+		v = math.clamp(math.floor(v + 0.5), min, max)
+		local rel = (v - min) / (max - min)
+		fill.Size = UDim2.new(rel, 0, 1, 0)
+		knob.Position = UDim2.new(rel, 0, 0.5, 0)
+		valueBox.Text = tostring(v)
+		if fire then callback(v) end
+	end
+	setValue(default, false)
+
+	local hit = Instance.new("TextButton")
+	hit.BackgroundTransparency = 1
+	hit.Text = ""
+	hit.Position = UDim2.fromOffset(-6, -10)
+	hit.Size = UDim2.new(1, 12, 1, 20)
+	hit.Parent = track
+
+	local dragging = false
+	local function fromX(x)
+		local rel = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+		setValue(min + (max - min) * rel, true)
+	end
+	hit.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			fromX(i.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			fromX(i.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	valueBox.FocusLost:Connect(function()
+		local n = tonumber(valueBox.Text)
+		setValue(n or default, true)
+	end)
+end
+
+local function humanoid()
+	local char = player.Character
+	return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local walkSpeed, jumpPower = 16, 50
+
+local function applyStats()
+	local h = humanoid()
+	if h then
+		h.WalkSpeed = walkSpeed
+		h.UseJumpPower = true
+		h.JumpPower = jumpPower
+	end
+end
+
+player.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	applyStats()
+end)
+
+-- ===== Settings / Misc page (GUI size control) =====
+local settingsPage = Instance.new("Frame")
+settingsPage.BackgroundTransparency = 1
+settingsPage.Size = UDim2.fromScale(1, 1)
+settingsPage.Visible = false
+settingsPage.Parent = content
+pages.Misc = settingsPage
+
+local settingsHead = frame(settingsPage, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
+corner(settingsHead, 10)
+stroke(settingsHead, LINE, 1)
+makeIcon(settingsHead, ICONS.Misc, RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
+label(settingsHead, "Misc", 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
+label(settingsHead, "General settings and GUI options.", 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
+
+local settingsCard = frame(settingsPage, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
+corner(settingsCard, 10)
+stroke(settingsCard, LINE, 1)
+
+makeSlider(settingsCard, "GUI Size", 12, 50, 150, 100, function(v)
+	userGuiScale = v / 100
+	updateScale()
+end)
+label(settingsCard, "Drag to resize the whole GUI window.", 12, GRAY, UDim2.fromOffset(16, 76), UDim2.new(1, -32, 0, 18), Enum.Font.Gotham)
+
+
+-- Always-on Anti-AFK
+local afkLabel = label(settingsCard, "Anti-AFK", 15, WHITE, UDim2.fromOffset(16, 112), UDim2.fromOffset(180, 30), Enum.Font.GothamBold)
+local afkStatus = label(settingsCard, "Always ON", 13, RED, UDim2.fromOffset(16, 138), UDim2.fromOffset(180, 22), Enum.Font.GothamMedium)
+
+player.Idled:Connect(function()
+	VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+	task.wait(1)
+	VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
+
+-- Helper: builds a page's header card + a blank options card, and registers it in `pages`
+local function makePage(key, title, subtitle)
+	local page = Instance.new("Frame")
+	page.BackgroundTransparency = 1
+	page.Size = UDim2.fromScale(1, 1)
+	page.Visible = false
+	page.Parent = content
+	pages[key] = page
+
+	local pageHead = frame(page, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
+	corner(pageHead, 10)
+	stroke(pageHead, LINE, 1)
+	makeIcon(pageHead, ICONS[key], RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
+	label(pageHead, title, 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
+	label(pageHead, subtitle, 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(300, 18), Enum.Font.Gotham)
+
+	local pageCard = frame(page, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
+	corner(pageCard, 10)
+	stroke(pageCard, LINE, 1)
+
+	return page, pageCard
+end
+
+-- ===== Minigame / Gems backend =====
+local AutoFarmGems = false
+local TotalFarmedGems = 0
+local gemPrompt = nil
+
+local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade")
+local ArcadeReport = ArcadeFolder:WaitForChild("ArcadeReport")
+local ArcadeSession = ArcadeFolder:WaitForChild("ArcadeSession")
+
+local function findGemPrompt()
+	local machine = workspace:FindFirstChild("Arcade Machine", true)
+	if machine then
+		gemPrompt = machine:FindFirstChild("PlayPrompt", true)
+	end
+	if not gemPrompt then
+		for _, object in ipairs(workspace:GetDescendants()) do
+			if object:IsA("ProximityPrompt") and object.Name == "PlayPrompt" then
+				gemPrompt = object
+				break
+			end
+		end
+	end
+	if gemPrompt and gemPrompt.Parent then
+		gemPrompt.HoldDuration = 0
+		gemPrompt.MaxActivationDistance = math.huge
+		gemPrompt.RequiresLineOfSight = false
+		gemPrompt.ClickablePrompt = true
+		return gemPrompt
+	end
+	return nil
+end
+
+for i = 1, 4 do
+	task.spawn(function()
+		while gui.Parent do
+			if AutoFarmGems then
+				pcall(function()
+					local prompt = findGemPrompt()
+					if prompt then
+						if fireproximityprompt then
+							fireproximityprompt(prompt, 0)
+						else
+							prompt:InputHoldBegin()
+							prompt:InputHoldEnd()
+						end
+					end
+					ArcadeReport:FireServer("kills", 40, 2)
+					TotalFarmedGems += 1
+					ArcadeSession:FireServer("quit", 1, 6240)
+				end)
+				task.wait()
+			else
+				task.wait(0.2)
+			end
+		end
+	end)
+end
+
+local classes = {
+	"Starter", "Pack Mule", "Hay Merchant", "Forkmaster", "Demolitionist",
+	"Prospector", "Drone Specialist", "Hoover", "Ultimate Farmer", "The Chosen One"
+}
+local selectedClasses = {}
+local classRolling = false
+
+-- ===== Home page =====
+local homePage, homeCard = makePage("Home", "Home", "Gems, class rolling and quick access.")
+
+-- Gems display
+local homeGems = label(homeCard, "💎 Gems: Loading...", 15, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(220, 24), Enum.Font.GothamBold)
+
+local gemsBtn = Instance.new("TextButton")
+gemsBtn.Name = "GemsDup"
+gemsBtn.AutoButtonColor = false
+gemsBtn.BackgroundColor3 = OFF
+gemsBtn.BorderSizePixel = 0
+gemsBtn.Text = "Gems Dup  OFF"
+gemsBtn.Font = Enum.Font.GothamBold
+gemsBtn.TextSize = 13
+gemsBtn.TextColor3 = WHITE
+gemsBtn.Position = UDim2.fromOffset(16, 42)
+gemsBtn.Size = UDim2.fromOffset(185, 34)
+gemsBtn.Parent = homeCard
+corner(gemsBtn, 8)
+
+gemsBtn.MouseButton1Click:Connect(function()
+	AutoFarmGems = not AutoFarmGems
+	gemsBtn.Text = AutoFarmGems and "Gems Dup  ON" or "Gems Dup  OFF"
+	gemsBtn.BackgroundColor3 = AutoFarmGems and RED or OFF
+end)
+
+-- Class selector
+label(homeCard, "Roll Class", 14, WHITE, UDim2.fromOffset(16, 88), UDim2.fromOffset(120, 22), Enum.Font.GothamBold)
+local selectedCount = label(homeCard, "Selected: 0", 11, GRAY, UDim2.fromOffset(16, 110), UDim2.fromOffset(120, 18), Enum.Font.Gotham)
+
+local selectClasses = Instance.new("TextButton")
+selectClasses.AutoButtonColor = false
+selectClasses.BackgroundColor3 = OFF
+selectClasses.BorderSizePixel = 0
+selectClasses.Text = "Classes ▼"
+selectClasses.Font = Enum.Font.GothamMedium
+selectClasses.TextSize = 13
+selectClasses.TextColor3 = WHITE
+selectClasses.Position = UDim2.fromOffset(150, 92)
+selectClasses.Size = UDim2.fromOffset(125, 34)
+selectClasses.ZIndex = 20
+selectClasses.Parent = homeCard
+corner(selectClasses, 8)
+
+local rollClass = Instance.new("TextButton")
+rollClass.AutoButtonColor = false
+rollClass.BackgroundColor3 = OFF
+rollClass.BorderSizePixel = 0
+rollClass.Text = "ROLL"
+rollClass.Font = Enum.Font.GothamBold
+rollClass.TextSize = 13
+rollClass.TextColor3 = WHITE
+rollClass.Position = UDim2.fromOffset(285, 92)
+rollClass.Size = UDim2.fromOffset(125, 34)
+rollClass.Parent = homeCard
+corner(rollClass, 8)
+
+local classDropdown = Instance.new("ScrollingFrame")
+classDropdown.BackgroundColor3 = CARD
+classDropdown.BorderSizePixel = 0
+classDropdown.ScrollBarThickness = 4
+classDropdown.Position = UDim2.fromOffset(16, 132)
+classDropdown.Size = UDim2.fromOffset(394, 130)
+classDropdown.CanvasSize = UDim2.fromOffset(0, #classes * 30)
+classDropdown.Visible = false
+classDropdown.ZIndex = 50
+classDropdown.Parent = homeCard
+corner(classDropdown, 8)
+stroke(classDropdown, LINE, 1)
+local classLayout = Instance.new("UIListLayout")
+classLayout.Padding = UDim.new(0, 2)
+classLayout.Parent = classDropdown
+
+for _, className in ipairs(classes) do
+	local b = Instance.new("TextButton")
+	b.AutoButtonColor = false
+	b.BackgroundColor3 = OFF
+	b.BorderSizePixel = 0
+	b.Text = "☐ " .. className
+	b.Font = Enum.Font.GothamMedium
+	b.TextSize = 12
+	b.TextColor3 = WHITE
+	b.Size = UDim2.new(1, -6, 0, 28)
+	b.ZIndex = 51
+	b.Parent = classDropdown
+	corner(b, 6)
+	b.MouseButton1Click:Connect(function()
+		selectedClasses[className] = not selectedClasses[className] or nil
+		if selectedClasses[className] then
+			b.Text = "☑ " .. className
+			b.BackgroundColor3 = RED_DARK
+		else
+			b.Text = "☐ " .. className
+			b.BackgroundColor3 = OFF
+		end
+		local count = 0
+		for _ in pairs(selectedClasses) do count += 1 end
+		selectedCount.Text = "Selected: " .. count
+	end)
+end
+
+selectClasses.MouseButton1Click:Connect(function()
+	classDropdown.Visible = not classDropdown.Visible
+	selectClasses.Text = classDropdown.Visible and "Classes ▲" or "Classes ▼"
+end)
+
+rollClass.MouseButton1Click:Connect(function()
+	if classRolling then
+		classRolling = false
+		rollClass.Text = "ROLL"
+		rollClass.BackgroundColor3 = OFF
+		return
+	end
+	local count = 0
+	for _ in pairs(selectedClasses) do count += 1 end
+	if count == 0 then
+		rollClass.Text = "SELECT"
+		rollClass.BackgroundColor3 = RED
+		task.delay(0.8, function()
+			if not classRolling then
+				rollClass.Text = "ROLL"
+				rollClass.BackgroundColor3 = OFF
+			end
+		end)
+		return
+	end
+	classRolling = true
+	rollClass.Text = "ON"
+	rollClass.BackgroundColor3 = RED
+end)
+
+task.spawn(function()
+	local Event = ReplicatedStorage:WaitForChild("ClassSystem"):WaitForChild("RollClass")
+	while gui.Parent do
+		task.wait(0.1)
+		if classRolling then
+			local ok, result = pcall(function() return Event:InvokeServer() end)
+			if ok and type(result) == "table" and selectedClasses[result.className] then
+				classRolling = false
+				rollClass.Text = "FOUND"
+				rollClass.BackgroundColor3 = RED
+			end
+		end
+	end
+end)
+
+-- Read the game's existing gem counter when available.
+task.spawn(function()
+	local ok, statsUI = pcall(function() return playerGui:WaitForChild("PlayerStatsUI", 10) end)
+	if not ok or not statsUI then return end
+	local ok2, gemLabel = pcall(function()
+		return statsUI:WaitForChild("Frame", 10):WaitForChild("GemFrame", 10):WaitForChild("GemLabel", 10)
+	end)
+	if not ok2 or not gemLabel then return end
+	while gui.Parent do
+		homeGems.Text = "💎 Gems: " .. gemLabel.Text
+		task.wait(0.2)
+	end
+end)
+
+-- ===== Visuals page =====
+local visualsPage, visualsCard = makePage("Visuals", "Visuals", "ESP and rendering tweaks.")
+makeToggle(visualsCard, "ESP", 1, function(on) end)
+makeToggle(visualsCard, "Fullbright", 2, function(on) end)
+makeToggle(visualsCard, "Chams", 3, function(on) end)
+makeToggle(visualsCard, "Tracers", 4, function(on) end)
+
+-- ===== Player page (movement stats moved here from Main Farm) =====
+local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
+makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v)
+	walkSpeed = v
+	applyStats()
+end)
+makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v)
+	jumpPower = v
+	applyStats()
+end)
+makeToggle(playerCard, "Infinite Jump", 5, function(on) end) -- index 5 leaves room below the two sliders above
+
+-- ===== Teleports page =====
+local teleportsPage, teleportsCard = makePage("Teleports", "Teleports", "Jump to key locations.")
+local TELEPORT_SPOTS = { "Spawn", "Shop", "Farm", "Base" }
+for i, spotName in ipairs(TELEPORT_SPOTS) do
+	local y = 12 + (i - 1) * 46
+	local tBtn = Instance.new("TextButton")
+	tBtn.AutoButtonColor = false
+	tBtn.BackgroundColor3 = OFF
+	tBtn.BorderSizePixel = 0
+	tBtn.Text = spotName
+	tBtn.Font = Enum.Font.GothamMedium
+	tBtn.TextSize = 15
+	tBtn.TextColor3 = WHITE
+	tBtn.Position = UDim2.fromOffset(16, y)
+	tBtn.Size = UDim2.new(1, -32, 0, 36)
+	tBtn.Parent = teleportsCard
+	corner(tBtn, 8)
+	tBtn.MouseButton1Click:Connect(function()
+		-- Add your own CFrame teleport logic here, e.g.:
+		-- local char = player.Character
+		-- if char then char:PivotTo(CFrame.new(0, 5, 0)) end
+	end)
+end
+
+-- selectTab depends on all pages existing, so call it last
+selectTab("Home")
