@@ -29,55 +29,55 @@ local WHITE = Color3.fromRGB(240, 240, 245)
 
 -- ===== Helpers =====
 local function corner(obj, r)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r)
-	c.Parent = obj
-	return c
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r)
+    c.Parent = obj
+    return c
 end
 
 local function stroke(obj, color, thick)
-	local s = Instance.new("UIStroke")
-	s.Color = color
-	s.Thickness = thick
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = obj
-	return s
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thick
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = obj
+    return s
 end
 
 local function label(parent, text, size, color, pos, sz, font, align)
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Text = text
-	l.TextSize = size
-	l.TextColor3 = color
-	l.Font = font or Enum.Font.Gotham
-	l.Position = pos
-	l.Size = sz
-	l.TextXAlignment = align or Enum.TextXAlignment.Left
-	l.Parent = parent
-	return l
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextSize = size
+    l.TextColor3 = color
+    l.Font = font or Enum.Font.Gotham
+    l.Position = pos
+    l.Size = sz
+    l.TextXAlignment = align or Enum.TextXAlignment.Left
+    l.Parent = parent
+    return l
 end
 
 local function frame(parent, color, pos, sz)
-	local f = Instance.new("Frame")
-	f.BackgroundColor3 = color
-	f.BorderSizePixel = 0
-	f.Position = pos
-	f.Size = sz
-	f.Parent = parent
-	return f
+    local f = Instance.new("Frame")
+    f.BackgroundColor3 = color
+    f.BorderSizePixel = 0
+    f.Position = pos
+    f.Size = sz
+    f.Parent = parent
+    return f
 end
 
 local function makeIcon(parent, assetId, color, pos, size)
-	local img = Instance.new("ImageLabel")
-	img.BackgroundTransparency = 1
-	img.Image = assetId
-	img.ImageColor3 = color
-	img.ScaleType = Enum.ScaleType.Fit
-	img.Position = pos
-	img.Size = size
-	img.Parent = parent
-	return img
+    local img = Instance.new("ImageLabel")
+    img.BackgroundTransparency = 1
+    img.Image = assetId
+    img.ImageColor3 = color
+    img.ScaleType = Enum.ScaleType.Fit
+    img.Position = pos
+    img.Size = size
+    img.Parent = parent
+    return img
 end
 
 -- ===== ScreenGui =====
@@ -89,7 +89,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptHub"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
-gui.DisplayOrder = 999 
+gui.DisplayOrder = 999
 gui.Parent = playerGui
 
 local main = frame(gui, BG, UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(640, 420))
@@ -101,9 +101,9 @@ local scale = Instance.new("UIScale")
 scale.Parent = main
 local userGuiScale = 1
 local function updateScale()
-	local v = workspace.CurrentCamera.ViewportSize
-	local autoFit = math.min(1, v.X / 680, v.Y / 460)
-	scale.Scale = autoFit * userGuiScale
+    local v = workspace.CurrentCamera.ViewportSize
+    local autoFit = math.min(1, v.X / 680, v.Y / 460)
+    scale.Scale = autoFit * userGuiScale
 end
 updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
@@ -122,14 +122,12 @@ virtualMouse.Parent = gui
 RunService.RenderStepped:Connect(function()
     local mouseLoc = UserInputService:GetMouseLocation()
     virtualMouse.Position = UDim2.fromOffset(mouseLoc.X, mouseLoc.Y)
-    
     virtualMouse.Visible = main.Visible
-    
     if main.Visible then
         UserInputService.MouseIconEnabled = false
     else
         UserInputService.MouseIconEnabled = true
-    end
+    end 
 end)
 
 -- ===== Header =====
@@ -151,7 +149,7 @@ linkBox.Position = UDim2.fromOffset(67, 36)
 linkBox.Size = UDim2.fromOffset(300, 18)
 linkBox.Parent = header
 linkBox.FocusLost:Connect(function()
-	linkBox.Text = SUBTITLE
+    linkBox.Text = SUBTITLE
 end)
 
 frame(main, LINE, UDim2.fromOffset(0, 64), UDim2.new(1, 0, 0, 1))
@@ -182,12 +180,12 @@ minBtn.Parent = header
 local body = frame(main, BG, UDim2.fromOffset(0, 65), UDim2.new(1, 0, 1, -65))
 body.BackgroundTransparency = 1
 
-closeBtn.MouseButton1Click:Connect(function() 
-    UserInputService.MouseIconEnabled = true 
-    gui:Destroy() 
+closeBtn.MouseButton1Click:Connect(function()
+    UserInputService.MouseIconEnabled = true
+    gui:Destroy()
 end)
 
--- Small floating toggle button
+-- Floating toggle button
 local floatBtn = Instance.new("ImageButton")
 floatBtn.Name = "FloatingToggle"
 floatBtn.BackgroundTransparency = 1
@@ -200,112 +198,112 @@ floatBtn.Visible = false
 floatBtn.Parent = gui
 
 minBtn.MouseButton1Click:Connect(function()
-	main.Visible = false
-	floatBtn.Visible = true
+    main.Visible = false
+    floatBtn.Visible = true
 end)
 floatBtn.MouseButton1Click:Connect(function()
-	main.Visible = true
-	floatBtn.Visible = false
+    main.Visible = true
+    floatBtn.Visible = false
 end)
 
--- Let floating button be dragged
+-- Floating button dragging
 do
-	local dragging, dragStart, startPos
-	floatBtn.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = i.Position
-			startPos = floatBtn.Position
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-			local d = i.Position - dragStart
-			floatBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
+    local dragging, dragStart, startPos
+    floatBtn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            startPos = floatBtn.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - dragStart
+            floatBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
 end
 
 -- Dragging main GUI
 do
-	local dragging, dragStart, startPos
-	header.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = i.Position
-			startPos = main.Position
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-			local d = (i.Position - dragStart) / scale.Scale
-			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
+    local dragging, dragStart, startPos
+    header.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            startPos = main.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = (i.Position - dragStart) / scale.Scale
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
 end
 
 -- ===== Sidebar =====
 frame(body, LINE, UDim2.fromOffset(180, 0), UDim2.new(0, 1, 1, 0))
 
 local ICONS = {
-	Home = "rbxassetid://133569512170316",
-	Combat = "rbxassetid://86075252657350",
-	Visuals = "rbxassetid://101685064640916",
-	Player = "rbxassetid://88381641494731",
-	Teleports = "rbxassetid://137529167135156",
-	Misc = "rbxassetid://85870986242716",
+    Home = "rbxassetid://133569512170316",
+    Combat = "rbxassetid://86075252657350",
+    Visuals = "rbxassetid://101685064640916",
+    Player = "rbxassetid://88381641494731",
+    Teleports = "rbxassetid://137529167135156",
+    Misc = "rbxassetid://85870986242716",
 }
 
 local tabs = {
-	{ "Home" },
-	{ "Combat" },
-	{ "Visuals" },
-	{ "Player" },
-	{ "Teleports" },
-	{ "Misc" },
+    { "Home" },
+    { "Combat" },
+    { "Visuals" },
+    { "Player" },
+    { "Teleports" },
+    { "Misc" },
 }
 local DISPLAY_NAME = { Combat = "Main Farm" }
 local tabButtons = {}
 local pages = {}
 
 local function selectTab(name)
-	for n, b in pairs(tabButtons) do
-		local active = (n == name)
-		TweenService:Create(b, TweenInfo.new(0.15), {
-			BackgroundTransparency = active and 0 or 1,
-		}):Play()
-	end
-	for n, p in pairs(pages) do
-		p.Visible = (n == name)
-	end
+    for n, b in pairs(tabButtons) do
+        local active = (n == name)
+        TweenService:Create(b, TweenInfo.new(0.15), {
+            BackgroundTransparency = active and 0 or 1,
+        }):Play()
+    end
+    for n, p in pairs(pages) do
+        p.Visible = (n == name)
+    end
 end
 
 for i, t in ipairs(tabs) do
-	local b = Instance.new("TextButton")
-	b.Name = t[1]
-	b.AutoButtonColor = false
-	b.Text = ""
-	b.BackgroundColor3 = RED_DARK
-	b.BackgroundTransparency = 1
-	b.BorderSizePixel = 0
-	b.Position = UDim2.fromOffset(10, 14 + (i - 1) * 50)
-	b.Size = UDim2.fromOffset(160, 42)
-	b.Parent = body
-	corner(b, 8)
-	makeIcon(b, ICONS[t[1]], WHITE, UDim2.fromOffset(16, 9), UDim2.fromOffset(24, 24))
-	label(b, DISPLAY_NAME[t[1]] or t[1], 16, WHITE, UDim2.fromOffset(52, 0), UDim2.new(1, -52, 1, 0), Enum.Font.GothamMedium)
-	b.MouseButton1Click:Connect(function() selectTab(t[1]) end)
-	tabButtons[t[1]] = b
+    local b = Instance.new("TextButton")
+    b.Name = t[1]
+    b.AutoButtonColor = false
+    b.Text = ""
+    b.BackgroundColor3 = RED_DARK
+    b.BackgroundTransparency = 1
+    b.BorderSizePixel = 0
+    b.Position = UDim2.fromOffset(10, 14 + (i - 1) * 50)
+    b.Size = UDim2.fromOffset(160, 42)
+    b.Parent = body
+    corner(b, 8)
+    makeIcon(b, ICONS[t[1]], WHITE, UDim2.fromOffset(16, 9), UDim2.fromOffset(24, 24))
+    label(b, DISPLAY_NAME[t[1]] or t[1], 16, WHITE, UDim2.fromOffset(52, 0), UDim2.new(1, -52, 1, 0), Enum.Font.GothamMedium)
+    b.MouseButton1Click:Connect(function() selectTab(t[1]) end)
+    tabButtons[t[1]] = b
 end
 
 label(body, "Made by ", 13, GRAY, UDim2.fromOffset(20, 326), UDim2.fromOffset(60, 20), Enum.Font.Gotham)
@@ -315,20 +313,24 @@ label(body, CREDIT, 13, RED, UDim2.fromOffset(74, 326), UDim2.fromOffset(100, 20
 local content = frame(body, BG, UDim2.fromOffset(192, 10), UDim2.fromOffset(436, 336))
 content.BackgroundTransparency = 1
 
--- ===== Shared toggle =====
-local function makeToggle(parent, text, index, callback, initial)
-    local y = 4 + (index - 1) * 38
-    label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.new(1, -100, 0, 38), Enum.Font.Gotham)
+-- ===== Shared toggle & Subtext =====
+local function makeToggleWithSub(parent, text, subtext, yPos, callback, initial)
+    label(parent, text, 14, WHITE, UDim2.fromOffset(16, yPos), UDim2.new(1, -100, 0, 20), Enum.Font.Gotham)
+    if subtext then
+        label(parent, subtext, 11, GRAY, UDim2.fromOffset(16, yPos + 18), UDim2.new(1, -100, 0, 16), Enum.Font.Gotham)
+    end
+    
     local bg = Instance.new("TextButton")
     bg.AutoButtonColor = false
     bg.Text = ""
     bg.BackgroundColor3 = OFF
     bg.BorderSizePixel = 0
     bg.AnchorPoint = Vector2.new(1, 0)
-    bg.Position = UDim2.new(1, -16, 0, y + 8)
+    bg.Position = UDim2.new(1, -16, 0, yPos + 8)
     bg.Size = UDim2.fromOffset(52, 24)
     bg.Parent = parent
     corner(bg, 12)
+    
     local knob = Instance.new("Frame")
     knob.BackgroundColor3 = GRAY
     knob.BorderSizePixel = 0
@@ -336,6 +338,7 @@ local function makeToggle(parent, text, index, callback, initial)
     knob.Size = UDim2.fromOffset(18, 18)
     knob.Parent = bg
     corner(knob, 9)
+    
     local state = initial == true
     local function paint()
         local info = TweenInfo.new(0.15)
@@ -353,6 +356,10 @@ local function makeToggle(parent, text, index, callback, initial)
     end)
     if initial == true then callback(true) end
     return function() return state end
+end
+
+local function makeToggle(parent, text, index, callback, initial)
+    return makeToggleWithSub(parent, text, nil, 4 + (index - 1) * 38, callback, initial)
 end
 
 local function makeSlider(parent, text, y, min, max, default, callback)
@@ -426,7 +433,17 @@ local function makePage(key, title, subtitle)
     makeIcon(pageHead, ICONS[key], RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
     label(pageHead, title, 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
     label(pageHead, subtitle, 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(340, 18), Enum.Font.Gotham)
-    local pageCard = frame(page, CARD, UDim2.fromOffset(0, 62), UDim2.new(1, 0, 0, 274))
+    
+    local pageCard = Instance.new("ScrollingFrame")
+    pageCard.BackgroundTransparency = 0
+    pageCard.BackgroundColor3 = CARD
+    pageCard.Position = UDim2.fromOffset(0, 62)
+    pageCard.Size = UDim2.new(1, 0, 0, 274)
+    pageCard.BorderSizePixel = 0
+    pageCard.ScrollBarThickness = 4
+    pageCard.ScrollBarImageColor3 = RED
+    pageCard.CanvasSize = UDim2.fromOffset(0, 274)
+    pageCard.Parent = page
     corner(pageCard, 10)
     stroke(pageCard, LINE, 1)
     return page, pageCard
@@ -437,7 +454,7 @@ local homePage, homeCard = makePage("Home", "Home", "Gems and class tools.")
 local gemsDisplay = label(homeCard, "Gems: Loading...", 16, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(260, 28), Enum.Font.GothamBold)
 
 -- ==========================================================
--- SUPER HYPER GEMS FARM LOGIC (vlRomeolv's Gem Farmer V6.5)
+-- SUPER HYPER GEMS FARM LOGIC
 -- ==========================================================
 local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade", 5)
 local ArcadeReport = ArcadeFolder and ArcadeFolder:WaitForChild("ArcadeReport", 5)
@@ -511,15 +528,14 @@ end
 
 for _ = 1, 4 do startWorker() end
 
-makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on) 
-    superHyperGemsFlags.AutoFarmGems = on 
+makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on)
+    superHyperGemsFlags.AutoFarmGems = on
     if not on then
         task.spawn(function()
             pcall(function()
                 player:SetAttribute("ArcadePlaying", nil)
                 player:SetAttribute("NeedleInputLocked", nil)
                 if ArcadeSession then ArcadeSession:FireServer("quit", 1, 0) end
-                
                 local camera = workspace.CurrentCamera
                 if camera and player.Character then
                     local humanoid = player.Character:FindFirstChild("Humanoid")
@@ -529,12 +545,11 @@ makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on)
                         humanoid.Health = 0
                     end
                 end
-                
                 local arcadeUi = player:WaitForChild("PlayerGui"):FindFirstChild("ArcadeScreen")
                 if arcadeUi then arcadeUi.Enabled = false end
             end)
         end)
-    end
+    end 
 end)
 
 local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
@@ -637,7 +652,7 @@ for _, name in ipairs(classes) do
     local b = Instance.new("TextButton")
     b.AutoButtonColor = false
     b.BackgroundColor3 = OFF
-    b.Text = "   [  ]  " .. name
+    b.Text = " [ ] " .. name
     b.Font = Enum.Font.Gotham
     b.TextSize = 13
     b.TextColor3 = WHITE
@@ -647,22 +662,22 @@ for _, name in ipairs(classes) do
     b.Parent = classList
     corner(b, 6)
     stroke(b, LINE, 1)
-    
+
     b.MouseButton1Click:Connect(function()
         selectedClasses[name] = not selectedClasses[name] and true or nil
-        b.Text = (selectedClasses[name] and "   [ ✓ ]  " or "   [  ]  ") .. name
+        b.Text = (selectedClasses[name] and " [ ✓ ] " or " [ ] ") .. name
         b.BackgroundColor3 = selectedClasses[name] and RED_DARK or OFF
         updateClassCount()
-    end)
+    end) 
 end
 
 clearClasses.MouseButton1Click:Connect(function()
     table.clear(selectedClasses)
     for _, b in ipairs(classList:GetChildren()) do
-        if b:IsA("TextButton") then 
-            local name = b.Text:gsub("^%s*%[[%s✓%]*%]%s*", "")
-            b.Text = "   [  ]  " .. name
-            b.BackgroundColor3 = OFF 
+        if b:IsA("TextButton") then
+            local name = b.Text:gsub("^%s*%[[%s✓%]%]%s", "")
+            b.Text = " [ ] " .. name
+            b.BackgroundColor3 = OFF
         end
     end
     updateClassCount()
@@ -733,8 +748,10 @@ fastGemsBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ===== Main Farm: Auto Pick Needle, Auto Sell Hay & Auto Pick Gems =====
-local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle, Hay, and Gem harvesting.")
+-- ===== Main Farm Tab =====
+local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Hay, Gem, & Needle harvesting.")
+combatCard.CanvasSize = UDim2.fromOffset(0, 330)
+
 local needleAuto = false
 local needleCharacter, needleHumanoid, needleRoot
 local needleFlyConnection, needleCameraConnection
@@ -755,12 +772,14 @@ local function getNeedle()
     local n = mainFolder and mainFolder:FindFirstChild("Needle")
     return n
 end
+
 local function getNeedlePart(n)
     if not n then return nil end
     if n:IsA("BasePart") then return n end
     if n.PrimaryPart then return n.PrimaryPart end
     return n:FindFirstChildWhichIsA("BasePart", true)
 end
+
 local function stopNeedleFly()
     needleFlying = false
     if needleFlyConnection then needleFlyConnection:Disconnect(); needleFlyConnection = nil end
@@ -771,15 +790,18 @@ local function stopNeedleFly()
         if bg then bg:Destroy() end
     end
 end
+
 local function forcePlayerCamera()
     local cam = workspace.CurrentCamera
     if cam and needleHumanoid then cam.CameraType = Enum.CameraType.Custom; cam.CameraSubject = needleHumanoid end
 end
+
 local function stopNeedleCamera()
     needleCameraFocused = false
     if needleCameraConnection then needleCameraConnection:Disconnect(); needleCameraConnection = nil end
     forcePlayerCamera()
 end
+
 local function startNeedleFly()
     if not needleRoot then return end
     stopNeedleFly()
@@ -808,6 +830,7 @@ local function startNeedleFly()
         if dir.Magnitude > 0 then bg.CFrame = needleRoot.CFrame:Lerp(CFrame.lookAt(needleRoot.Position, needleRoot.Position + dir), 0.3) end
     end)
 end
+
 local function focusNeedleCamera()
     if needleCameraConnection then needleCameraConnection:Disconnect() end
     local cam = workspace.CurrentCamera
@@ -822,11 +845,13 @@ local function focusNeedleCamera()
         if camNow then camNow.CFrame = CFrame.lookAt(needleRoot.Position + Vector3.new(0, 2, 5), part.Position) end
     end)
 end
+
 local function pressNeedleE()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
     task.wait(0.05)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
 end
+
 local function autoPickNeedleOnce()
     refreshNeedleCharacter(player.Character)
     if not needleRoot then return end
@@ -843,6 +868,7 @@ local function autoPickNeedleOnce()
     stopNeedleCamera()
     if needleAuto then startNeedleFly() end
 end
+
 local function startAutoNeedleLoop()
     task.spawn(function()
         while needleAuto and gui.Parent do
@@ -851,18 +877,20 @@ local function startAutoNeedleLoop()
         end
     end)
 end
+
 local function stopAutoNeedle()
     stopNeedleFly()
     stopNeedleCamera()
     if needleHumanoid then needleHumanoid.PlatformStand = false end
 end
 
-makeToggle(combatCard, "Auto Pick Needle", 1, function(on)
+-- 1. Auto Pick Needle
+makeToggleWithSub(combatCard, "Auto Pick Needle", nil, 6, function(on)
     needleAuto = on
     if on then startAutoNeedleLoop() else stopAutoNeedle() end
 end)
 
--- AUTO SELL HAY LOGIC
+-- 2. Auto Sell Hay (With Delays)
 local autoSellHay = false
 local isSellingHay = false
 
@@ -875,20 +903,20 @@ local function sellAndReturnHay()
         local root = char:WaitForChild("HumanoidRootPart")
         local sellPart = workspace:WaitForChild("SellModel"):WaitForChild("SellPart")
         local sellEvent = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("SellHay")
-
+        
         local originalCFrame = root.CFrame
         root.CFrame = sellPart.CFrame + Vector3.new(0, 3, 0)
-        task.wait(0.1)
-
+        
+        task.wait(0.2) -- Delay before selling
         sellEvent:FireServer()
-        task.wait(0.15)
-
+        task.wait(0.3) -- Delay after selling
+        
         if root and root.Parent then
             root.CFrame = originalCFrame
         end
     end)
-
-    isSellingHay = false
+    
+    isSellingHay = false 
 end
 
 task.spawn(function()
@@ -901,21 +929,22 @@ task.spawn(function()
 
                 local current = tonumber(currentAmount.Text)
                 local maximum = tonumber(totalCapacity.Text)
-
+                
+                -- Checks if capacity is full OR over max capacity
                 if current and maximum and current >= maximum then
                     sellAndReturnHay()
                 end
             end)
         end
         task.wait(0.2)
-    end
+    end 
 end)
 
-makeToggle(combatCard, "Auto Sell Hay", 2, function(on)
+makeToggleWithSub(combatCard, "Auto Sell Hay", "Sells when inventory reaches or exceeds max", 50, function(on)
     autoSellHay = on
 end)
 
--- AUTO PICK GEMS LOGIC
+-- 3. Auto Pick Gems
 local autoPickGems = false
 local gemCollectConnection = nil
 local collectedGemIds = {}
@@ -925,26 +954,18 @@ local CollectGem = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild
 
 local function collectGemObject(gem)
     if not autoPickGems or not gem or not gem.Parent then return end
-
     local id = tonumber(gem.Name:match("^Gem_(%d+)$"))
     if not id or collectedGemIds[id] then return end
-
     collectedGemIds[id] = true
-
-    pcall(function()
-        CollectGem:FireServer(id)
-    end)
-
+    pcall(function() CollectGem:FireServer(id) end)
     task.delay(1, function()
-        if not gem or not gem.Parent then
-            collectedGemIds[id] = nil
-        end
-    end)
+        if not gem or not gem.Parent then collectedGemIds[id] = nil end
+    end) 
 end
 
 local function scanExistingGems()
     for _, gem in ipairs(GemsClient:GetChildren()) do
-        if gem.Name:match("^Gem_%d+$") then
+        if gem.Name:match("^Gem%d+$") then
             collectGemObject(gem)
         end
     end
@@ -955,15 +976,13 @@ local function startAutoPickGems()
         gemCollectConnection:Disconnect()
         gemCollectConnection = nil
     end
-
     table.clear(collectedGemIds)
     scanExistingGems()
-
     gemCollectConnection = GemsClient.ChildAdded:Connect(function(gem)
         if not autoPickGems then return end
         task.wait()
         collectGemObject(gem)
-    end)
+    end) 
 end
 
 local function stopAutoPickGems()
@@ -974,12 +993,191 @@ local function stopAutoPickGems()
     table.clear(collectedGemIds)
 end
 
-makeToggle(combatCard, "Auto Pick Gems", 3, function(on)
+makeToggleWithSub(combatCard, "Auto Pick Gems", nil, 98, function(on)
     autoPickGems = on
+    if on then startAutoPickGems() else stopAutoPickGems() end
+end)
+
+-- 4. Auto TNT Option
+local autoTNT = false
+local tntBusy = false
+local NH = ReplicatedStorage:WaitForChild("NeedleHaystack")
+local TntAction = NH:WaitForChild("TntAction")
+local HeldToolState = NH:WaitForChild("HeldToolState")
+local hayFolder = workspace:WaitForChild("HaystackClient")
+
+local function getHayPosition(hay)
+    if hay:IsA("BasePart") then return hay.Position end
+    if hay:IsA("Model") then
+        local part = hay.PrimaryPart or hay:FindFirstChildWhichIsA("BasePart")
+        if part then return part.Position end
+    end
+    return nil
+end
+
+local function getHighestHay()
+    local camera = workspace.CurrentCamera
+    local origin = camera.CFrame.Position
+    local look = camera.CFrame.LookVector
+    local highest = nil
+    local highestY = -math.huge
+
+    for _, hay in ipairs(hayFolder:GetChildren()) do
+        if hay.Name == "HayPiece" then
+            local pos = getHayPosition(hay)
+            if pos then
+                local offset = pos - origin
+                local distance = offset.Magnitude
+                if distance <= 30 and distance > 0 then
+                    local dot = math.clamp(look:Dot(offset.Unit), -1, 1)
+                    local angle = math.deg(math.acos(dot))
+                    if angle <= 45 and pos.Y > highestY then
+                        highestY = pos.Y
+                        highest = { position = pos, distance = distance }
+                    end
+                end
+            end
+        end
+    end
+    return highest
+end
+
+local function throwAtHighest()
+    local character = player.Character
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local target = getHighestHay()
+    if not target then return end
+
+    local startPosition = root.Position + Vector3.new(0,3,0)
+    local direction = (target.position - startPosition).Unit
+    local throwCFrame = CFrame.lookAt(startPosition, startPosition + direction)
+    local velocity = direction * 65
+
+    TntAction:FireServer("light")
+    task.wait(0.48)
+    HeldToolState:FireServer("Tnt", "lighting")
+    task.wait(0.1)
+    HeldToolState:FireServer("Tnt", "ready")
+    task.wait(0.1)
+    HeldToolState:FireServer("Tnt", "charging")
+    task.wait(0.2)
+    TntAction:FireServer("throw", throwCFrame, velocity)
+    task.wait(0.1)
+    HeldToolState:FireServer()
+end
+
+task.spawn(function()
+    while gui and gui.Parent do
+        if autoTNT then
+            if not tntBusy then
+                tntBusy = true
+                pcall(throwAtHighest)
+                tntBusy = false
+            end
+            task.wait(20)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+makeToggleWithSub(combatCard, "Auto TNT", "(use auto tnt. Need to buy tnt first)", 142, function(on)
+    autoTNT = on
+end)
+
+-- 5. Auto Collect Hay (3 Tools in 1)
+local autoCollectHay = false
+local vacuumStarted = false
+local PickHay = NH:WaitForChild("PickHay")
+local PitchforkDig = NH:WaitForChild("PitchforkDig")
+local VacuumAction = NH:WaitForChild("VacuumAction")
+local lastPitchfork = 0
+
+local function getLookHay()
+    local camera = workspace.CurrentCamera
+    local origin = camera.CFrame.Position
+    local direction = camera.CFrame.LookVector
+    local candidates = {}
+
+    for _, hay in ipairs(hayFolder:GetChildren()) do
+        if hay.Name == "HayPiece" then
+            local id = hay:GetAttribute("HayId")
+            local pos = getHayPosition(hay)
+            if id and pos then
+                local offset = pos - origin
+                local distance = offset.Magnitude
+                if distance > 0 and distance <= 20 then
+                    local dot = direction:Dot(offset.Unit)
+                    if dot > 0 then
+                        local angle = math.deg(math.acos(math.clamp(dot, -1, 1)))
+                        if angle <= 35 then
+                            table.insert(candidates, { id = id, distance = distance, angle = angle, position = pos })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(candidates, function(a, b)
+        if math.abs(a.angle - b.angle) < 5 then return a.distance < b.distance end
+        return a.angle < b.angle
+    end)
+    return candidates
+end
+
+task.spawn(function()
+    while gui and gui.Parent do
+        if autoCollectHay then
+            local candidates = getLookHay()
+            if #candidates > 0 then
+                local pickIds, vacuumIds = {}, {}
+                for i = 1, math.min(#candidates, 12) do table.insert(pickIds, candidates[i].id) end
+                for i = 1, math.min(#candidates, 8) do table.insert(vacuumIds, candidates[i].id) end
+
+                local primaryId = pickIds[1]
+                local additionalIds = {}
+                for i = 2, #pickIds do table.insert(additionalIds, pickIds[i]) end
+
+                -- Tool 1: Pick Hay
+                pcall(function() PickHay:FireServer(primaryId, additionalIds) end)
+
+                -- Tool 2: Pitchfork
+                if os.clock() - lastPitchfork >= 0.85 then
+                    lastPitchfork = os.clock()
+                    pcall(function() PitchforkDig:FireServer(primaryId) end)
+                end
+
+                -- Tool 3: Vacuum
+                if vacuumStarted and #vacuumIds > 0 then
+                    local character = player.Character
+                    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+                    if playerRoot then
+                        pcall(function()
+                            VacuumAction:FireServer("Tick", playerRoot.Position, candidates[1].position, vacuumIds)
+                        end)
+                    end
+                end
+            end
+            task.wait(0.15)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+makeToggleWithSub(combatCard, "Auto Collect Hay", "(use all 3 tools)", 192, function(on)
+    autoCollectHay = on
     if on then
-        startAutoPickGems()
+        pcall(function() VacuumAction:FireServer("Start") end)
+        vacuumStarted = true
     else
-        stopAutoPickGems()
+        if vacuumStarted then
+            pcall(function() VacuumAction:FireServer("Stop") end)
+            vacuumStarted = false
+        end
     end
 end)
 
@@ -993,9 +1191,11 @@ end)
 local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle highlighting.")
 local needleHighlight
 local needleESP = false
+
 local function removeNeedleHighlight()
     if needleHighlight then needleHighlight:Destroy(); needleHighlight = nil end
 end
+
 local function applyNeedleHighlight()
     removeNeedleHighlight()
     if not needleESP then return end
@@ -1012,11 +1212,14 @@ local function applyNeedleHighlight()
     h.Parent = n
     needleHighlight = h
 end
+
 makeToggle(visualsCard, "Needle ESP", 1, function(on)
     needleESP = on
     if on then applyNeedleHighlight() else removeNeedleHighlight() end
 end)
+
 label(visualsCard, "Highlights Workspace.Main.Needle in red.", 12, GRAY, UDim2.fromOffset(16, 52), UDim2.new(1, -32, 0, 30), Enum.Font.Gotham)
+
 task.spawn(function()
     while gui.Parent do
         if needleESP and not needleHighlight then applyNeedleHighlight() end
@@ -1028,19 +1231,21 @@ end)
 -- ===== Player page =====
 local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
 local walkSpeed, jumpPower = 16, 50
+
 local function getHumanoid()
     local char = player.Character
     return char and char:FindFirstChildOfClass("Humanoid")
 end
+
 local function applyStats()
     local h = getHumanoid()
     if h then h.WalkSpeed = walkSpeed; h.UseJumpPower = true; h.JumpPower = jumpPower end
 end
+
 makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v) walkSpeed = v; applyStats() end)
 makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v) jumpPower = v; applyStats() end)
-makeToggle(playerCard, "Infinite Jump", 5, function(on)
-    -- State is intentionally local
-end)
+makeToggle(playerCard, "Infinite Jump", 5, function(on) end)
+
 player.CharacterAdded:Connect(function() task.wait(0.5); applyStats() end)
 
 -- ===== Teleports page =====
@@ -1061,7 +1266,7 @@ for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
     corner(tBtn, 8)
 end
 
--- ===== Misc / Anti-AFK + GUI Size + Remove GUI =====
+-- ===== Misc / Anti-AFK =====
 local settingsPage, settingsCard = makePage("Misc", "Misc", "General settings and AFK protection.")
 
 local lagFixed = false
@@ -1083,42 +1288,27 @@ makeToggle(settingsCard, "Fix Lag", 1, function(on)
                     pcall(function() v.Enabled = false end)
                 end
             end
-        
+
             local T = workspace:FindFirstChildOfClass("Terrain")
-            if T then
-                T.WaterWaveSize = 0 T.WaterWaveSpeed = 0
-                T.WaterReflectance = 0 T.WaterTransparency = 1
-                pcall(function() T.Decoration = false end)
-            end
-        
+            if T then T.WaterWaveSize = 0 T.WaterWaveSpeed = 0 T.WaterReflectance = 0 T.WaterTransparency = 1 pcall(function() T.Decoration = false end) end
             local function clear(v)
-                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam")
-                or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
                     v.Enabled = false v:Destroy()
                 elseif v:IsA("Decal") or v:IsA("Texture") then
                     v.Transparency = 1 v:Destroy()
                 elseif v:IsA("BasePart") then
-                    v.CastShadow = false
-                    v.Reflectance = 0
-                    v.Material = Enum.Material.SmoothPlastic
+                    v.CastShadow = false v.Reflectance = 0 v.Material = Enum.Material.SmoothPlastic
                 elseif v:IsA("MeshPart") then
-                    v.RenderFidelity = Enum.RenderFidelity.Performance
-                    v.CastShadow = false
+                    v.RenderFidelity = Enum.RenderFidelity.Performance v.CastShadow = false
                 elseif v:IsA("Accessory") and not v.Parent:IsA("Tool") then
-                    pcall(function()
-                        if game.Players:GetPlayerFromCharacter(v.Parent) ~= game.Players.LocalPlayer then
-                            v:Destroy()
-                        end
-                    end)
+                    pcall(function() if game.Players:GetPlayerFromCharacter(v.Parent) ~= game.Players.LocalPlayer then v:Destroy() end end)
                 end
             end
             for _,v in pairs(game:GetDescendants()) do pcall(clear,v) end
             game.DescendantAdded:Connect(function(v) task.wait(0.1) pcall(clear,v) end)
-        
             settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         end)
-        print("FIX LAG MANH ON")
-    end
+    end 
 end)
 
 makeSlider(settingsCard, "GUI Size", 52, 50, 150, 100, function(v)
@@ -1145,14 +1335,20 @@ removeGuiBtn.MouseButton1Click:Connect(function()
     needleAuto = false
     autoSellHay = false
     autoPickGems = false
+    autoTNT = false
+    autoCollectHay = false
     superHyperGemsFlags.AutoFarmGems = false
-    
+
+    if vacuumStarted then
+        pcall(function() VacuumAction:FireServer("Stop") end)
+        vacuumStarted = false
+    end
+
     stopAutoNeedle()
     stopAutoPickGems()
     removeNeedleHighlight()
-    
     UserInputService.MouseIconEnabled = true
-    gui:Destroy()
+    gui:Destroy() 
 end)
 
 player.Idled:Connect(function()
