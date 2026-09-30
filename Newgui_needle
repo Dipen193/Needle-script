@@ -733,8 +733,8 @@ fastGemsBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ===== Main Farm: Auto Pick Needle & Auto Sell Hay =====
-local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle and Hay harvesting.")
+-- ===== Main Farm: Auto Pick Needle, Auto Sell Hay & Auto Pick Gems =====
+local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle, Hay, and Gem harvesting.")
 local needleAuto = false
 local needleCharacter, needleHumanoid, needleRoot
 local needleFlyConnection, needleCameraConnection
@@ -915,6 +915,74 @@ makeToggle(combatCard, "Auto Sell Hay", 2, function(on)
     autoSellHay = on
 end)
 
+-- AUTO PICK GEMS LOGIC
+local autoPickGems = false
+local gemCollectConnection = nil
+local collectedGemIds = {}
+
+local GemsClient = workspace:WaitForChild("GemsClient")
+local CollectGem = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("CollectGem")
+
+local function collectGemObject(gem)
+    if not autoPickGems or not gem or not gem.Parent then return end
+
+    local id = tonumber(gem.Name:match("^Gem_(%d+)$"))
+    if not id or collectedGemIds[id] then return end
+
+    collectedGemIds[id] = true
+
+    pcall(function()
+        CollectGem:FireServer(id)
+    end)
+
+    task.delay(1, function()
+        if not gem or not gem.Parent then
+            collectedGemIds[id] = nil
+        end
+    end)
+end
+
+local function scanExistingGems()
+    for _, gem in ipairs(GemsClient:GetChildren()) do
+        if gem.Name:match("^Gem_%d+$") then
+            collectGemObject(gem)
+        end
+    end
+end
+
+local function startAutoPickGems()
+    if gemCollectConnection then
+        gemCollectConnection:Disconnect()
+        gemCollectConnection = nil
+    end
+
+    table.clear(collectedGemIds)
+    scanExistingGems()
+
+    gemCollectConnection = GemsClient.ChildAdded:Connect(function(gem)
+        if not autoPickGems then return end
+        task.wait()
+        collectGemObject(gem)
+    end)
+end
+
+local function stopAutoPickGems()
+    if gemCollectConnection then
+        gemCollectConnection:Disconnect()
+        gemCollectConnection = nil
+    end
+    table.clear(collectedGemIds)
+end
+
+makeToggle(combatCard, "Auto Pick Gems", 3, function(on)
+    autoPickGems = on
+    if on then
+        startAutoPickGems()
+    else
+        stopAutoPickGems()
+    end
+end)
+
 player.CharacterAdded:Connect(function(char)
     refreshNeedleCharacter(char)
     task.wait(0.5)
@@ -1076,8 +1144,11 @@ corner(removeGuiBtn, 8)
 removeGuiBtn.MouseButton1Click:Connect(function()
     needleAuto = false
     autoSellHay = false
+    autoPickGems = false
     superHyperGemsFlags.AutoFarmGems = false
+    
     stopAutoNeedle()
+    stopAutoPickGems()
     removeNeedleHighlight()
     
     UserInputService.MouseIconEnabled = true
