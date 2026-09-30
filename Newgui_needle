@@ -123,10 +123,8 @@ RunService.RenderStepped:Connect(function()
     local mouseLoc = UserInputService:GetMouseLocation()
     virtualMouse.Position = UDim2.fromOffset(mouseLoc.X, mouseLoc.Y)
     
-    -- Only show the virtual cursor when the main menu is visible
     virtualMouse.Visible = main.Visible
     
-    -- Hide the real Roblox cursor if the virtual one is active
     if main.Visible then
         UserInputService.MouseIconEnabled = false
     else
@@ -511,13 +509,11 @@ local function startWorker()
     end)
 end
 
--- Launch 4 parallel concurrent workers
 for _ = 1, 4 do startWorker() end
 
 makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on) 
     superHyperGemsFlags.AutoFarmGems = on 
     if not on then
-        -- Force cleanup and Character Reset when turned off
         task.spawn(function()
             pcall(function()
                 player:SetAttribute("ArcadePlaying", nil)
@@ -530,7 +526,6 @@ makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on)
                     if humanoid then
                         camera.CameraType = Enum.CameraType.Custom
                         camera.CameraSubject = humanoid
-                        -- Reset the character
                         humanoid.Health = 0
                     end
                 end
@@ -541,7 +536,6 @@ makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on)
         end)
     end
 end)
--- ==========================================================
 
 local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
 local selectedClasses = {}
@@ -559,7 +553,6 @@ classButton.Size = UDim2.fromOffset(190, 36)
 classButton.Parent = homeCard
 corner(classButton, 8)
 
--- Class Popup window
 local classPopup = frame(homePage, CARD, UDim2.fromOffset(10, 62), UDim2.fromOffset(416, 265))
 classPopup.Visible = false
 classPopup.ZIndex = 20
@@ -740,8 +733,8 @@ fastGemsBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ===== Main Farm: Auto Pick Needle =====
-local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle collection.")
+-- ===== Main Farm: Auto Pick Needle & Auto Sell Hay =====
+local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Needle and Hay harvesting.")
 local needleAuto = false
 local needleCharacter, needleHumanoid, needleRoot
 local needleFlyConnection, needleCameraConnection
@@ -863,11 +856,64 @@ local function stopAutoNeedle()
     stopNeedleCamera()
     if needleHumanoid then needleHumanoid.PlatformStand = false end
 end
+
 makeToggle(combatCard, "Auto Pick Needle", 1, function(on)
     needleAuto = on
     if on then startAutoNeedleLoop() else stopAutoNeedle() end
 end)
-label(combatCard, "Automatically goes to the Needle and interacts with it.", 12, GRAY, UDim2.fromOffset(16, 52), UDim2.new(1, -32, 0, 34), Enum.Font.Gotham)
+
+-- AUTO SELL HAY LOGIC
+local autoSellHay = false
+local isSellingHay = false
+
+local function sellAndReturnHay()
+    if isSellingHay then return end
+    isSellingHay = true
+
+    pcall(function()
+        local char = player.Character or player.CharacterAdded:Wait()
+        local root = char:WaitForChild("HumanoidRootPart")
+        local sellPart = workspace:WaitForChild("SellModel"):WaitForChild("SellPart")
+        local sellEvent = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("SellHay")
+
+        local originalCFrame = root.CFrame
+        root.CFrame = sellPart.CFrame + Vector3.new(0, 3, 0)
+        task.wait(0.1)
+
+        sellEvent:FireServer()
+        task.wait(0.15)
+
+        if root and root.Parent then
+            root.CFrame = originalCFrame
+        end
+    end)
+
+    isSellingHay = false
+end
+
+task.spawn(function()
+    while gui and gui.Parent do
+        if autoSellHay then
+            pcall(function()
+                local capacityUI = player.PlayerGui:WaitForChild("HUD"):WaitForChild("BottomLeft"):WaitForChild("Capacity")
+                local currentAmount = capacityUI:WaitForChild("CurrentAmount")
+                local totalCapacity = capacityUI:WaitForChild("BackgroundHaybale"):WaitForChild("TotalCapacity")
+
+                local current = tonumber(currentAmount.Text)
+                local maximum = tonumber(totalCapacity.Text)
+
+                if current and maximum and current >= maximum then
+                    sellAndReturnHay()
+                end
+            end)
+        end
+        task.wait(0.2)
+    end
+end)
+
+makeToggle(combatCard, "Auto Sell Hay", 2, function(on)
+    autoSellHay = on
+end)
 
 player.CharacterAdded:Connect(function(char)
     refreshNeedleCharacter(char)
@@ -1029,11 +1075,11 @@ corner(removeGuiBtn, 8)
 
 removeGuiBtn.MouseButton1Click:Connect(function()
     needleAuto = false
+    autoSellHay = false
     superHyperGemsFlags.AutoFarmGems = false
     stopAutoNeedle()
     removeNeedleHighlight()
     
-    -- Restore original mouse and destroy GUI
     UserInputService.MouseIconEnabled = true
     gui:Destroy()
 end)
