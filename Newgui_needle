@@ -108,6 +108,32 @@ end
 updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 
+-- ==========================================================
+-- 🖱️ VIRTUAL / FAKE MOUSE LOGIC (Only in GUI Screen)
+-- ==========================================================
+local virtualMouse = Instance.new("ImageLabel")
+virtualMouse.Name = "VirtualCursor"
+virtualMouse.Size = UDim2.fromOffset(20, 20)
+virtualMouse.BackgroundTransparency = 1
+virtualMouse.Image = "rbxasset://textures/Cursors/KeyboardMouse/ArrowCursor.png"
+virtualMouse.ZIndex = 9999999
+virtualMouse.Parent = gui
+
+RunService.RenderStepped:Connect(function()
+    local mouseLoc = UserInputService:GetMouseLocation()
+    virtualMouse.Position = UDim2.fromOffset(mouseLoc.X, mouseLoc.Y)
+    
+    -- Only show the virtual cursor when the main menu is visible
+    virtualMouse.Visible = main.Visible
+    
+    -- Hide the real Roblox cursor if the virtual one is active
+    if main.Visible then
+        UserInputService.MouseIconEnabled = false
+    else
+        UserInputService.MouseIconEnabled = true
+    end
+end)
+
 -- ===== Header =====
 local header = frame(main, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 64))
 header.BackgroundTransparency = 1
@@ -158,7 +184,10 @@ minBtn.Parent = header
 local body = frame(main, BG, UDim2.fromOffset(0, 65), UDim2.new(1, 0, 1, -65))
 body.BackgroundTransparency = 1
 
-closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+closeBtn.MouseButton1Click:Connect(function() 
+    UserInputService.MouseIconEnabled = true 
+    gui:Destroy() 
+end)
 
 -- Small floating toggle button
 local floatBtn = Instance.new("ImageButton")
@@ -485,7 +514,33 @@ end
 -- Launch 4 parallel concurrent workers
 for _ = 1, 4 do startWorker() end
 
-makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on) superHyperGemsFlags.AutoFarmGems = on end)
+makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on) 
+    superHyperGemsFlags.AutoFarmGems = on 
+    if not on then
+        -- Force cleanup and Character Reset when turned off
+        task.spawn(function()
+            pcall(function()
+                player:SetAttribute("ArcadePlaying", nil)
+                player:SetAttribute("NeedleInputLocked", nil)
+                if ArcadeSession then ArcadeSession:FireServer("quit", 1, 0) end
+                
+                local camera = workspace.CurrentCamera
+                if camera and player.Character then
+                    local humanoid = player.Character:FindFirstChild("Humanoid")
+                    if humanoid then
+                        camera.CameraType = Enum.CameraType.Custom
+                        camera.CameraSubject = humanoid
+                        -- Reset the character
+                        humanoid.Health = 0
+                    end
+                end
+                
+                local arcadeUi = player:WaitForChild("PlayerGui"):FindFirstChild("ArcadeScreen")
+                if arcadeUi then arcadeUi.Enabled = false end
+            end)
+        end)
+    end
+end)
 -- ==========================================================
 
 local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
@@ -977,6 +1032,9 @@ removeGuiBtn.MouseButton1Click:Connect(function()
     superHyperGemsFlags.AutoFarmGems = false
     stopAutoNeedle()
     removeNeedleHighlight()
+    
+    -- Restore original mouse and destroy GUI
+    UserInputService.MouseIconEnabled = true
     gui:Destroy()
 end)
 
