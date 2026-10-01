@@ -1671,7 +1671,7 @@ end)
 LoadingScreen.SetProgress(35, "Main Farm buttons loaded")
 
 -- ===== Visuals: Needle ESP =====
-local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle highlighting.")
+local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle ESP, shop and upgrades.")
 local needleHighlight
 local needleESP = false
 
@@ -1708,6 +1708,232 @@ task.spawn(function()
         if needleESP and not needleHighlight then applyNeedleHighlight() end
         if not getNeedle() and needleHighlight then removeNeedleHighlight() end
         task.wait(1)
+    end
+end)
+
+
+-- ===== Visuals: Upgrades & Shop (click button + auto-buy toggle) =====
+local NeedleRemotes = ReplicatedStorage:WaitForChild("NeedleHaystack", 5)
+local BuyUpgradeRemote = NeedleRemotes and NeedleRemotes:WaitForChild("BuyUpgrade", 5)
+local BuyShopRemote = NeedleRemotes and NeedleRemotes:WaitForChild("BuyShopItem", 5)
+
+local AUTO_DELAY = 0.3 -- seconds between auto-buy attempts
+
+local upgradeGroups = {
+    { name = "Vacuum Updates", items = {
+        {"Vacuum Runtime", "VacuumRuntime"},
+        {"Vacuum Cooling", "VacuumCooling"},
+        {"Vacuum Power", "VacuumPower"},
+    }},
+    { name = "Drone Updates", items = {
+        {"Drone Capacity", "DroneCapacity"},
+        {"Drone Speed", "DroneSpeed"},
+        {"Drone Grab", "DroneGrab"},
+    }},
+    { name = "Pitchfork Updates", items = {
+        {"Pitchfork", "Pitchfork"},
+        {"Pitchfork Cooldown", "PitchforkCooldown"},
+        {"Pitchfork Hold", "PitchforkHold"},
+    }},
+    { name = "TNT Updates", items = {
+        {"TNT Power", "TntPower"},
+        {"TNT Cooldown", "TntCooldown"},
+        {"TNT Luck", "TntLuck"},
+    }},
+    { name = "Hand Updates", items = {
+        {"Speed", "Speed"},
+        {"Grab", "Grab"},
+        {"Hand Hold", "HandHold"},
+    }},
+}
+
+local shopItems = {
+    {"Vacuum", "Vacuum"},
+    {"TNT", "Tnt"},
+    {"Pitchfork", "Pitchfork"},
+}
+
+local autoEntries = {}
+
+local function fireBuy(remote, id)
+    if not remote then return false end
+    local ok, err = pcall(function() remote:FireServer(id) end)
+    if not ok then warn("Buy failed:", id, err) end
+    return ok
+end
+
+local function makeBuyRow(parent, order, displayName, remote, id, buyText)
+    local row = Instance.new("Frame")
+    row.BackgroundColor3 = BG
+    row.BorderSizePixel = 0
+    row.Size = UDim2.new(1, 0, 0, 38)
+    row.LayoutOrder = order
+    row.Parent = parent
+    corner(row, 8)
+    stroke(row, LINE, 1)
+
+    label(row, displayName, 14, WHITE, UDim2.fromOffset(12, 0), UDim2.new(1, -150, 1, 0), Enum.Font.Gotham)
+
+    -- Click button
+    local buy = Instance.new("TextButton")
+    buy.AutoButtonColor = false
+    buy.BackgroundColor3 = RED_DARK
+    buy.BorderSizePixel = 0
+    buy.Text = buyText
+    buy.Font = Enum.Font.GothamMedium
+    buy.TextSize = 13
+    buy.TextColor3 = WHITE
+    buy.AnchorPoint = Vector2.new(1, 0.5)
+    buy.Position = UDim2.new(1, -68, 0.5, 0)
+    buy.Size = UDim2.fromOffset(72, 26)
+    buy.Parent = row
+    corner(buy, 6)
+
+    buy.MouseButton1Click:Connect(function()
+        local ok = fireBuy(remote, id)
+        buy.BackgroundColor3 = ok and Color3.fromRGB(45, 145, 75) or Color3.fromRGB(160, 45, 45)
+        task.delay(0.3, function()
+            if buy and buy.Parent then buy.BackgroundColor3 = RED_DARK end
+        end)
+    end)
+
+    -- Auto-buy toggle
+    local bg = Instance.new("TextButton")
+    bg.AutoButtonColor = false
+    bg.Text = ""
+    bg.BackgroundColor3 = OFF
+    bg.BorderSizePixel = 0
+    bg.AnchorPoint = Vector2.new(1, 0.5)
+    bg.Position = UDim2.new(1, -10, 0.5, 0)
+    bg.Size = UDim2.fromOffset(48, 22)
+    bg.Parent = row
+    corner(bg, 11)
+
+    local knob = Instance.new("Frame")
+    knob.BackgroundColor3 = GRAY
+    knob.BorderSizePixel = 0
+    knob.Position = UDim2.fromOffset(3, 3)
+    knob.Size = UDim2.fromOffset(16, 16)
+    knob.Parent = bg
+    corner(knob, 8)
+
+    local entry = { remote = remote, id = id, enabled = false }
+    table.insert(autoEntries, entry)
+
+    bg.MouseButton1Click:Connect(function()
+        entry.enabled = not entry.enabled
+        local info = TweenInfo.new(0.15)
+        TweenService:Create(bg, info, {BackgroundColor3 = entry.enabled and RED or OFF}):Play()
+        TweenService:Create(knob, info, {
+            Position = entry.enabled and UDim2.fromOffset(29, 3) or UDim2.fromOffset(3, 3),
+            BackgroundColor3 = entry.enabled and WHITE or GRAY,
+        }):Play()
+    end)
+end
+
+local function makeCollapsibleGroup(parent, order, name, items, remote, buyText)
+    local container = Instance.new("Frame")
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.Size = UDim2.new(1, 0, 0, 0)
+    container.AutomaticSize = Enum.AutomaticSize.Y
+    container.LayoutOrder = order
+    container.Parent = parent
+
+    local list = Instance.new("UIListLayout")
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 4)
+    list.Parent = container
+
+    local header = Instance.new("TextButton")
+    header.AutoButtonColor = false
+    header.BackgroundColor3 = OFF
+    header.BorderSizePixel = 0
+    header.Text = ""
+    header.Size = UDim2.new(1, 0, 0, 36)
+    header.LayoutOrder = 1
+    header.Parent = container
+    corner(header, 8)
+
+    label(header, name, 14, WHITE, UDim2.fromOffset(14, 0), UDim2.new(1, -60, 1, 0), Enum.Font.GothamBold)
+    local arrow = label(header, ">", 18, GRAY, UDim2.new(1, -36, 0, 0), UDim2.fromOffset(28, 36), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+
+    local itemsFrame = Instance.new("Frame")
+    itemsFrame.BackgroundTransparency = 1
+    itemsFrame.BorderSizePixel = 0
+    itemsFrame.Size = UDim2.new(1, 0, 0, 0)
+    itemsFrame.AutomaticSize = Enum.AutomaticSize.Y
+    itemsFrame.Visible = false
+    itemsFrame.LayoutOrder = 2
+    itemsFrame.Parent = container
+
+    local itemsList = Instance.new("UIListLayout")
+    itemsList.SortOrder = Enum.SortOrder.LayoutOrder
+    itemsList.Padding = UDim.new(0, 4)
+    itemsList.Parent = itemsFrame
+
+    local itemsPad = Instance.new("UIPadding")
+    itemsPad.PaddingLeft = UDim.new(0, 10)
+    itemsPad.Parent = itemsFrame
+
+    for i, item in ipairs(items) do
+        makeBuyRow(itemsFrame, i, item[1], remote, item[2], buyText)
+    end
+
+    header.MouseButton1Click:Connect(function()
+        itemsFrame.Visible = not itemsFrame.Visible
+        arrow.Text = itemsFrame.Visible and "v" or ">"
+    end)
+end
+
+local function makeSectionLabel(parent, order, text)
+    local l = label(parent, text, 12, GRAY, UDim2.new(), UDim2.new(1, 0, 0, 18), Enum.Font.GothamBold)
+    l.LayoutOrder = order
+    return l
+end
+
+-- Auto scroll size for the Visuals page (so the groups can scroll)
+visualsCard.CanvasSize = UDim2.new(0, 0, 0, 0)
+visualsCard.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local upgradeRoot = Instance.new("Frame")
+upgradeRoot.BackgroundTransparency = 1
+upgradeRoot.BorderSizePixel = 0
+upgradeRoot.Position = UDim2.fromOffset(12, 92)
+upgradeRoot.Size = UDim2.new(1, -28, 0, 0)
+upgradeRoot.AutomaticSize = Enum.AutomaticSize.Y
+upgradeRoot.Parent = visualsCard
+
+local rootList = Instance.new("UIListLayout")
+rootList.SortOrder = Enum.SortOrder.LayoutOrder
+rootList.Padding = UDim.new(0, 6)
+rootList.Parent = upgradeRoot
+
+local rootPad = Instance.new("UIPadding")
+rootPad.PaddingBottom = UDim.new(0, 14)
+rootPad.Parent = upgradeRoot
+
+makeSectionLabel(upgradeRoot, 1, "SHOP   (button = buy once  |  toggle = auto buy)")
+makeCollapsibleGroup(upgradeRoot, 2, "Shop Items", shopItems, BuyShopRemote, "Buy")
+
+makeSectionLabel(upgradeRoot, 3, "UPGRADES   (button = upgrade  |  toggle = auto upgrade)")
+for i, group in ipairs(upgradeGroups) do
+    makeCollapsibleGroup(upgradeRoot, 3 + i, group.name, group.items, BuyUpgradeRemote, "Upgrade")
+end
+
+-- Auto-buy loop: tries each toggled item in turn; the server only accepts it when you can afford it.
+task.spawn(function()
+    while gui.Parent do
+        local fired = false
+        for _, entry in ipairs(autoEntries) do
+            if not gui.Parent then break end
+            if entry.enabled then
+                fireBuy(entry.remote, entry.id)
+                fired = true
+                task.wait(AUTO_DELAY)
+            end
+        end
+        if not fired then task.wait(0.5) end
     end
 end)
 
