@@ -10,12 +10,11 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- ===== Settings =====
-local TITLE = "NEEDLE SCRIPT"
+local TITLE = "KIWIN"
 local SUBTITLE = "https://discord.gg/xXZStK2WZ"
 local CREDIT = "DIPEN"
 
--- ICON IDS ("rbxassetid://1234567890")
-local CAT_LOGO = "rbxassetid://135741506710099"
+local CAT_LOGO = "rbxassetid://115528029499362"
 local MIN_ICON = "rbxassetid://71958574652709"
 
 local RED = Color3.fromRGB(255, 25, 25)
@@ -27,13 +26,10 @@ local OFF = Color3.fromRGB(38, 38, 46)
 local GRAY = Color3.fromRGB(160, 160, 175)
 local WHITE = Color3.fromRGB(240, 240, 245)
 
-
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- ==========================================================
 -- LOADING SCREEN
--- Keeps the loader visible while the main GUI initializes.
--- It only closes after the complete script reaches the end.
 -- ==========================================================
 local LoadingScreen = {}
 
@@ -62,7 +58,7 @@ do
     card.BorderSizePixel = 0
     card.AnchorPoint = Vector2.new(0.5, 0.5)
     card.Position = UDim2.fromScale(0.5, 0.5)
-    card.Size = UDim2.fromOffset(360, 230)
+    card.Size = UDim2.fromOffset(380, 310)
     card.ZIndex = 2
     card.Parent = loaderGui
 
@@ -81,8 +77,8 @@ do
     logo.ImageColor3 = WHITE
     logo.ScaleType = Enum.ScaleType.Fit
     logo.AnchorPoint = Vector2.new(0.5, 0)
-    logo.Position = UDim2.new(0.5, 0, 0, 20)
-    logo.Size = UDim2.fromOffset(58, 58)
+    logo.Position = UDim2.new(0.5, 0, 0, 18)
+    logo.Size = UDim2.fromOffset(130, 130)
     logo.ZIndex = 3
     logo.Parent = card
 
@@ -94,7 +90,7 @@ do
     title.TextSize = 24
     title.TextXAlignment = Enum.TextXAlignment.Center
     title.AnchorPoint = Vector2.new(0.5, 0)
-    title.Position = UDim2.new(0.5, 0, 0, 82)
+    title.Position = UDim2.new(0.5, 0, 0, 154)
     title.Size = UDim2.new(1, -30, 0, 30)
     title.ZIndex = 3
     title.Parent = card
@@ -107,7 +103,7 @@ do
     status.TextSize = 13
     status.TextXAlignment = Enum.TextXAlignment.Center
     status.AnchorPoint = Vector2.new(0.5, 0)
-    status.Position = UDim2.new(0.5, 0, 0, 118)
+    status.Position = UDim2.new(0.5, 0, 0, 192)
     status.Size = UDim2.new(1, -30, 0, 22)
     status.ZIndex = 3
     status.Parent = card
@@ -116,7 +112,7 @@ do
     barBack.BackgroundColor3 = LINE
     barBack.BorderSizePixel = 0
     barBack.AnchorPoint = Vector2.new(0.5, 0)
-    barBack.Position = UDim2.new(0.5, 0, 0, 150)
+    barBack.Position = UDim2.new(0.5, 0, 0, 224)
     barBack.Size = UDim2.fromOffset(300, 8)
     barBack.ZIndex = 3
     barBack.Parent = card
@@ -144,7 +140,7 @@ do
     percent.TextSize = 12
     percent.TextXAlignment = Enum.TextXAlignment.Right
     percent.AnchorPoint = Vector2.new(1, 0)
-    percent.Position = UDim2.new(1, -30, 0, 164)
+    percent.Position = UDim2.new(1, -40, 0, 238)
     percent.Size = UDim2.fromOffset(60, 20)
     percent.ZIndex = 3
     percent.Parent = card
@@ -167,9 +163,11 @@ do
 
     function LoadingScreen.SetProgress(value, message)
         if destroyed then return end
+
         progress = math.clamp(tonumber(value) or progress, 0, 100)
         status.Text = message or status.Text
         percent.Text = tostring(math.floor(progress + 0.5)) .. "%"
+
         TweenService:Create(
             bar,
             TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -179,31 +177,52 @@ do
 
     function LoadingScreen.Finish()
         if destroyed then return end
+
         LoadingScreen.SetProgress(100, "Ready!")
         task.wait(0.18)
 
-        local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local fadeInfo = TweenInfo.new(
+            0.35,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        )
+
         for _, obj in ipairs(loaderGui:GetDescendants()) do
             if obj:IsA("GuiObject") then
-                local goal = {BackgroundTransparency = 1}
+                local goal = {
+                    BackgroundTransparency = 1
+                }
+
                 if obj:IsA("TextLabel") then
                     goal.TextTransparency = 1
                 elseif obj:IsA("ImageLabel") then
                     goal.ImageTransparency = 1
                 end
-                pcall(function() TweenService:Create(obj, fadeInfo, goal):Play() end)
+
+                pcall(function()
+                    TweenService:Create(obj, fadeInfo, goal):Play()
+                end)
+
             elseif obj:IsA("UIStroke") then
-                pcall(function() TweenService:Create(obj, fadeInfo, {Transparency = 1}):Play() end)
+                pcall(function()
+                    TweenService:Create(
+                        obj,
+                        fadeInfo,
+                        {Transparency = 1}
+                    ):Play()
+                end)
             end
         end
 
         task.wait(0.4)
+
         destroyed = true
-        if loaderGui then loaderGui:Destroy() end
+
+        if loaderGui then
+            loaderGui:Destroy()
+        end
     end
 
-    -- Let Roblox render the loader before GUI construction continues.
-    -- Progress is based only on GUI construction, not game/place objects.
     LoadingScreen.SetProgress(5, "Creating GUI...")
     RunService.RenderStepped:Wait()
 end
@@ -263,7 +282,9 @@ end
 
 -- ===== ScreenGui =====
 local old = playerGui:FindFirstChild("ScriptHub")
-if old then old:Destroy() end
+if old then
+    old:Destroy()
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptHub"
@@ -272,24 +293,42 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999
 gui.Parent = playerGui
 
-local main = frame(gui, BG, UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(640, 420))
+local main = frame(
+    gui,
+    BG,
+    UDim2.fromScale(0.5, 0.5),
+    UDim2.fromOffset(640, 420)
+)
+
 main.AnchorPoint = Vector2.new(0.5, 0.5)
+
 corner(main, 14)
 local mainStroke = stroke(main, RED, 2)
 
 local scale = Instance.new("UIScale")
 scale.Parent = main
+
 local userGuiScale = 1
+
 local function updateScale()
     local v = workspace.CurrentCamera.ViewportSize
-    local autoFit = math.min(1, v.X / 680, v.Y / 460)
+    local autoFit = math.min(
+        1,
+        v.X / 680,
+        v.Y / 460
+    )
+
     scale.Scale = autoFit * userGuiScale
 end
+
 updateScale()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+
+workspace.CurrentCamera:GetPropertyChangedSignal(
+    "ViewportSize"
+):Connect(updateScale)
 
 -- ==========================================================
--- 🖱️ VIRTUAL / FAKE MOUSE LOGIC (Only in GUI Screen)
+-- VIRTUAL / FAKE MOUSE LOGIC
 -- ==========================================================
 local virtualMouse = Instance.new("ImageLabel")
 virtualMouse.Name = "VirtualCursor"
@@ -301,21 +340,48 @@ virtualMouse.Parent = gui
 
 RunService.RenderStepped:Connect(function()
     local mouseLoc = UserInputService:GetMouseLocation()
-    virtualMouse.Position = UDim2.fromOffset(mouseLoc.X, mouseLoc.Y)
+
+    virtualMouse.Position = UDim2.fromOffset(
+        mouseLoc.X,
+        mouseLoc.Y
+    )
+
     virtualMouse.Visible = main.Visible
+
     if main.Visible then
         UserInputService.MouseIconEnabled = false
     else
         UserInputService.MouseIconEnabled = true
-    end 
+    end
 end)
 
 -- ===== Header =====
-local header = frame(main, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 64))
+local header = frame(
+    main,
+    BG,
+    UDim2.fromOffset(0, 0),
+    UDim2.new(1, 0, 0, 64)
+)
+
 header.BackgroundTransparency = 1
 
-makeIcon(header, CAT_LOGO, WHITE, UDim2.fromOffset(14, 10), UDim2.fromOffset(44, 44))
-label(header, TITLE, 26, WHITE, UDim2.fromOffset(66, 8), UDim2.fromOffset(300, 30), Enum.Font.GothamBold)
+makeIcon(
+    header,
+    CAT_LOGO,
+    WHITE,
+    UDim2.fromOffset(10, 3),
+    UDim2.fromOffset(58, 58)
+)
+
+label(
+    header,
+    TITLE,
+    26,
+    WHITE,
+    UDim2.fromOffset(76, 8),
+    UDim2.fromOffset(300, 30),
+    Enum.Font.GothamBold
+)
 
 local linkBox = Instance.new("TextBox")
 linkBox.BackgroundTransparency = 1
@@ -325,14 +391,20 @@ linkBox.TextSize = 13
 linkBox.TextColor3 = GRAY
 linkBox.TextXAlignment = Enum.TextXAlignment.Left
 linkBox.ClearTextOnFocus = false
-linkBox.Position = UDim2.fromOffset(67, 36)
+linkBox.Position = UDim2.fromOffset(77, 36)
 linkBox.Size = UDim2.fromOffset(300, 18)
 linkBox.Parent = header
+
 linkBox.FocusLost:Connect(function()
     linkBox.Text = SUBTITLE
 end)
 
-frame(main, LINE, UDim2.fromOffset(0, 64), UDim2.new(1, 0, 0, 1))
+frame(
+    main,
+    LINE,
+    UDim2.fromOffset(0, 64),
+    UDim2.new(1, 0, 0, 1)
+)
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.BackgroundTransparency = 1
@@ -357,7 +429,13 @@ minBtn.Size = UDim2.fromOffset(32, 32)
 minBtn.Parent = header
 
 -- ===== Body =====
-local body = frame(main, BG, UDim2.fromOffset(0, 65), UDim2.new(1, 0, 1, -65))
+local body = frame(
+    main,
+    BG,
+    UDim2.fromOffset(0, 65),
+    UDim2.new(1, 0, 1, -65)
+)
+
 body.BackgroundTransparency = 1
 
 closeBtn.MouseButton1Click:Connect(function()
@@ -365,7 +443,6 @@ closeBtn.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
 
--- Floating toggle button
 local floatBtn = Instance.new("ImageButton")
 floatBtn.Name = "FloatingToggle"
 floatBtn.BackgroundTransparency = 1
@@ -381,59 +458,99 @@ minBtn.MouseButton1Click:Connect(function()
     main.Visible = false
     floatBtn.Visible = true
 end)
+
 floatBtn.MouseButton1Click:Connect(function()
     main.Visible = true
     floatBtn.Visible = false
 end)
 
--- Floating button dragging
 do
     local dragging, dragStart, startPos
+
     floatBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
             dragging = true
             dragStart = i.Position
             startPos = floatBtn.Position
         end
     end)
+
     UserInputService.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        if dragging
+            and (
+                i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch
+            ) then
+
             local d = i.Position - dragStart
-            floatBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+
+            floatBtn.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + d.Y
+            )
         end
     end)
+
     UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
             dragging = false
         end
     end)
 end
 
--- Dragging main GUI
 do
     local dragging, dragStart, startPos
+
     header.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
             dragging = true
             dragStart = i.Position
             startPos = main.Position
         end
     end)
+
     UserInputService.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        if dragging
+            and (
+                i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch
+            ) then
+
             local d = (i.Position - dragStart) / scale.Scale
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+
+            main.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + d.Y
+            )
         end
     end)
+
     UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
             dragging = false
         end
     end)
 end
 
 -- ===== Sidebar =====
-frame(body, LINE, UDim2.fromOffset(180, 0), UDim2.new(0, 1, 1, 0))
+frame(
+    body,
+    LINE,
+    UDim2.fromOffset(180, 0),
+    UDim2.new(0, 1, 1, 0)
+)
 
 local ICONS = {
     Home = "rbxassetid://133569512170316",
@@ -445,26 +562,36 @@ local ICONS = {
 }
 
 local tabs = {
-    { "Home" },
-    { "Combat" },
-    { "Visuals" },
-    { "Player" },
-    { "Teleports" },
-    { "Misc" },
+    {"Home"},
+    {"Combat"},
+    {"Visuals"},
+    {"Player"},
+    {"Teleports"},
+    {"Misc"},
 }
-local DISPLAY_NAME = { Combat = "Main Farm" }
+
+local DISPLAY_NAME = {
+    Combat = "Main Farm"
+}
+
 local tabButtons = {}
 local pages = {}
 
 local function selectTab(name)
     for n, b in pairs(tabButtons) do
-        local active = (n == name)
-        TweenService:Create(b, TweenInfo.new(0.15), {
-            BackgroundTransparency = active and 0 or 1,
-        }):Play()
+        local active = n == name
+
+        TweenService:Create(
+            b,
+            TweenInfo.new(0.15),
+            {
+                BackgroundTransparency = active and 0 or 1
+            }
+        ):Play()
     end
+
     for n, p in pairs(pages) do
-        p.Visible = (n == name)
+        p.Visible = n == name
     end
 end
 
@@ -476,86 +603,240 @@ for i, t in ipairs(tabs) do
     b.BackgroundColor3 = RED_DARK
     b.BackgroundTransparency = 1
     b.BorderSizePixel = 0
-    b.Position = UDim2.fromOffset(10, 14 + (i - 1) * 50)
+    b.Position = UDim2.fromOffset(
+        10,
+        14 + (i - 1) * 50
+    )
     b.Size = UDim2.fromOffset(160, 42)
     b.Parent = body
+
     corner(b, 8)
-    makeIcon(b, ICONS[t[1]], WHITE, UDim2.fromOffset(16, 9), UDim2.fromOffset(24, 24))
-    label(b, DISPLAY_NAME[t[1]] or t[1], 16, WHITE, UDim2.fromOffset(52, 0), UDim2.new(1, -52, 1, 0), Enum.Font.GothamMedium)
-    b.MouseButton1Click:Connect(function() selectTab(t[1]) end)
+
+    makeIcon(
+        b,
+        ICONS[t[1]],
+        WHITE,
+        UDim2.fromOffset(16, 9),
+        UDim2.fromOffset(24, 24)
+    )
+
+    label(
+        b,
+        DISPLAY_NAME[t[1]] or t[1],
+        16,
+        WHITE,
+        UDim2.fromOffset(52, 0),
+        UDim2.new(1, -52, 1, 0),
+        Enum.Font.GothamMedium
+    )
+
+    b.MouseButton1Click:Connect(function()
+        selectTab(t[1])
+    end)
+
     tabButtons[t[1]] = b
 end
 
-label(body, "Made by ", 13, GRAY, UDim2.fromOffset(20, 326), UDim2.fromOffset(60, 20), Enum.Font.Gotham)
-label(body, CREDIT, 13, RED, UDim2.fromOffset(74, 326), UDim2.fromOffset(100, 20), Enum.Font.GothamBold)
+label(
+    body,
+    "Made by ",
+    13,
+    GRAY,
+    UDim2.fromOffset(20, 326),
+    UDim2.fromOffset(60, 20),
+    Enum.Font.Gotham
+)
+
+label(
+    body,
+    CREDIT,
+    13,
+    RED,
+    UDim2.fromOffset(74, 326),
+    UDim2.fromOffset(100, 20),
+    Enum.Font.GothamBold
+)
 
 -- ===== Content =====
-local content = frame(body, BG, UDim2.fromOffset(192, 10), UDim2.fromOffset(436, 336))
+local content = frame(
+    body,
+    BG,
+    UDim2.fromOffset(192, 10),
+    UDim2.fromOffset(436, 336)
+)
+
 content.BackgroundTransparency = 1
 
--- ===== Shared toggle & Subtext =====
-local function makeToggleWithSub(parent, text, subtext, yPos, callback, initial)
-    label(parent, text, 14, WHITE, UDim2.fromOffset(16, yPos), UDim2.new(1, -100, 0, 20), Enum.Font.Gotham)
+local function makeToggleWithSub(
+    parent,
+    text,
+    subtext,
+    yPos,
+    callback,
+    initial
+)
+    label(
+        parent,
+        text,
+        14,
+        WHITE,
+        UDim2.fromOffset(16, yPos),
+        UDim2.new(1, -100, 0, 20),
+        Enum.Font.Gotham
+    )
+
     if subtext then
-        label(parent, subtext, 11, GRAY, UDim2.fromOffset(16, yPos + 18), UDim2.new(1, -100, 0, 16), Enum.Font.Gotham)
+        label(
+            parent,
+            subtext,
+            11,
+            GRAY,
+            UDim2.fromOffset(16, yPos + 18),
+            UDim2.new(1, -100, 0, 16),
+            Enum.Font.Gotham
+        )
     end
-    
+
     local bg = Instance.new("TextButton")
     bg.AutoButtonColor = false
     bg.Text = ""
     bg.BackgroundColor3 = OFF
     bg.BorderSizePixel = 0
     bg.AnchorPoint = Vector2.new(1, 0)
-    bg.Position = UDim2.new(1, -16, 0, yPos + 8)
+    bg.Position = UDim2.new(
+        1,
+        -16,
+        0,
+        yPos + 8
+    )
     bg.Size = UDim2.fromOffset(52, 24)
     bg.Parent = parent
+
     corner(bg, 12)
-    
+
     local knob = Instance.new("Frame")
     knob.BackgroundColor3 = GRAY
     knob.BorderSizePixel = 0
     knob.Position = UDim2.fromOffset(3, 3)
     knob.Size = UDim2.fromOffset(18, 18)
     knob.Parent = bg
+
     corner(knob, 9)
-    
+
     local state = initial == true
+
     local function paint()
         local info = TweenInfo.new(0.15)
-        TweenService:Create(bg, info, {BackgroundColor3 = state and RED or OFF}):Play()
-        TweenService:Create(knob, info, {
-            Position = state and UDim2.fromOffset(31, 3) or UDim2.fromOffset(3, 3),
-            BackgroundColor3 = state and WHITE or GRAY,
-        }):Play()
+
+        TweenService:Create(
+            bg,
+            info,
+            {
+                BackgroundColor3 = state and RED or OFF
+            }
+        ):Play()
+
+        TweenService:Create(
+            knob,
+            info,
+            {
+                Position = state
+                    and UDim2.fromOffset(31, 3)
+                    or UDim2.fromOffset(3, 3),
+
+                BackgroundColor3 = state
+                    and WHITE
+                    or GRAY
+            }
+        ):Play()
     end
+
     paint()
+
     bg.MouseButton1Click:Connect(function()
         state = not state
         paint()
         callback(state)
     end)
-    if initial == true then callback(true) end
-    return function() return state end
+
+    if initial == true then
+        callback(true)
+    end
+
+    return function()
+        return state
+    end
 end
 
 local function makeToggle(parent, text, index, callback, initial)
-    return makeToggleWithSub(parent, text, nil, 4 + (index - 1) * 38, callback, initial)
+    return makeToggleWithSub(
+        parent,
+        text,
+        nil,
+        4 + (index - 1) * 38,
+        callback,
+        initial
+    )
 end
 
-local function makeSlider(parent, text, y, min, max, default, callback)
-    label(parent, text, 15, WHITE, UDim2.fromOffset(16, y), UDim2.fromOffset(200, 24), Enum.Font.Gotham)
-    local track = frame(parent, Color3.fromRGB(28, 28, 34), UDim2.fromOffset(16, y + 34), UDim2.new(1, -112, 0, 6))
+local function makeSlider(
+    parent,
+    text,
+    y,
+    min,
+    max,
+    default,
+    callback
+)
+    label(
+        parent,
+        text,
+        15,
+        WHITE,
+        UDim2.fromOffset(16, y),
+        UDim2.fromOffset(200, 24),
+        Enum.Font.Gotham
+    )
+
+    local track = frame(
+        parent,
+        Color3.fromRGB(28, 28, 34),
+        UDim2.fromOffset(16, y + 34),
+        UDim2.new(1, -112, 0, 6)
+    )
+
     corner(track, 3)
-    local fill = frame(track, RED, UDim2.fromOffset(0, 0), UDim2.new(0, 0, 1, 0))
+
+    local fill = frame(
+        track,
+        RED,
+        UDim2.fromOffset(0, 0),
+        UDim2.new(0, 0, 1, 0)
+    )
+
     corner(fill, 3)
-    local knob = frame(track, RED, UDim2.new(0, 0, 0.5, 0), UDim2.fromOffset(18, 18))
+
+    local knob = frame(
+        track,
+        RED,
+        UDim2.new(0, 0, 0.5, 0),
+        UDim2.fromOffset(18, 18)
+    )
+
     knob.AnchorPoint = Vector2.new(0.5, 0.5)
+
     corner(knob, 9)
+
     local valueBox = Instance.new("TextBox")
     valueBox.BackgroundColor3 = BG
     valueBox.BorderSizePixel = 0
     valueBox.AnchorPoint = Vector2.new(1, 0)
-    valueBox.Position = UDim2.new(1, -16, 0, y + 12)
+    valueBox.Position = UDim2.new(
+        1,
+        -16,
+        0,
+        y + 12
+    )
     valueBox.Size = UDim2.fromOffset(62, 32)
     valueBox.Font = Enum.Font.Gotham
     valueBox.TextSize = 17
@@ -563,41 +844,96 @@ local function makeSlider(parent, text, y, min, max, default, callback)
     valueBox.ClearTextOnFocus = false
     valueBox.Text = tostring(default)
     valueBox.Parent = parent
+
     corner(valueBox, 6)
     stroke(valueBox, LINE, 1)
+
     local function setValue(v, fire)
-        v = math.clamp(math.floor((tonumber(v) or default) + 0.5), min, max)
+        v = math.clamp(
+            math.floor((tonumber(v) or default) + 0.5),
+            min,
+            max
+        )
+
         local rel = (v - min) / math.max(1, max - min)
-        fill.Size = UDim2.new(rel, 0, 1, 0)
-        knob.Position = UDim2.new(rel, 0, 0.5, 0)
+
+        fill.Size = UDim2.new(
+            rel,
+            0,
+            1,
+            0
+        )
+
+        knob.Position = UDim2.new(
+            rel,
+            0,
+            0.5,
+            0
+        )
+
         valueBox.Text = tostring(v)
-        if fire then callback(v) end
+
+        if fire then
+            callback(v)
+        end
     end
+
     setValue(default, false)
+
     local hit = Instance.new("TextButton")
     hit.BackgroundTransparency = 1
     hit.Text = ""
     hit.Position = UDim2.fromOffset(-6, -10)
     hit.Size = UDim2.new(1, 12, 1, 20)
     hit.Parent = track
+
     local dragging = false
+
     local function fromX(x)
-        local rel = math.clamp((x - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X), 0, 1)
-        setValue(min + (max - min) * rel, true)
+        local rel = math.clamp(
+            (x - track.AbsolutePosition.X)
+            / math.max(1, track.AbsoluteSize.X),
+            0,
+            1
+        )
+
+        setValue(
+            min + (max - min) * rel,
+            true
+        )
     end
+
     hit.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
             dragging = true
             fromX(i.Position.X)
         end
     end)
+
     UserInputService.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then fromX(i.Position.X) end
+        if dragging
+            and (
+                i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch
+            ) then
+
+            fromX(i.Position.X)
+        end
     end)
+
     UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = false
+        end
     end)
-    valueBox.FocusLost:Connect(function() setValue(valueBox.Text, true) end)
+
+    valueBox.FocusLost:Connect(function()
+        setValue(valueBox.Text, true)
+    end)
 end
 
 local function makePage(key, title, subtitle)
@@ -606,14 +942,47 @@ local function makePage(key, title, subtitle)
     page.Size = UDim2.fromScale(1, 1)
     page.Visible = false
     page.Parent = content
+
     pages[key] = page
-    local pageHead = frame(page, CARD, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 54))
+
+    local pageHead = frame(
+        page,
+        CARD,
+        UDim2.fromOffset(0, 0),
+        UDim2.new(1, 0, 0, 54)
+    )
+
     corner(pageHead, 10)
     stroke(pageHead, LINE, 1)
-    makeIcon(pageHead, ICONS[key], RED, UDim2.fromOffset(16, 11), UDim2.fromOffset(32, 32))
-    label(pageHead, title, 18, WHITE, UDim2.fromOffset(62, 8), UDim2.fromOffset(250, 22), Enum.Font.GothamBold)
-    label(pageHead, subtitle, 13, GRAY, UDim2.fromOffset(62, 30), UDim2.fromOffset(340, 18), Enum.Font.Gotham)
-    
+
+    makeIcon(
+        pageHead,
+        ICONS[key],
+        RED,
+        UDim2.fromOffset(16, 11),
+        UDim2.fromOffset(32, 32)
+    )
+
+    label(
+        pageHead,
+        title,
+        18,
+        WHITE,
+        UDim2.fromOffset(62, 8),
+        UDim2.fromOffset(250, 22),
+        Enum.Font.GothamBold
+    )
+
+    label(
+        pageHead,
+        subtitle,
+        13,
+        GRAY,
+        UDim2.fromOffset(62, 30),
+        UDim2.fromOffset(340, 18),
+        Enum.Font.Gotham
+    )
+
     local pageCard = Instance.new("ScrollingFrame")
     pageCard.BackgroundTransparency = 0
     pageCard.BackgroundColor3 = CARD
@@ -624,34 +993,65 @@ local function makePage(key, title, subtitle)
     pageCard.ScrollBarImageColor3 = RED
     pageCard.CanvasSize = UDim2.fromOffset(0, 274)
     pageCard.Parent = page
+
     corner(pageCard, 10)
     stroke(pageCard, LINE, 1)
+
     return page, pageCard
 end
 
 -- ===== Home =====
-local homePage, homeCard = makePage("Home", "Home", "Gems and class tools.")
-local gemsDisplay = label(homeCard, "Gems: Loading...", 16, WHITE, UDim2.fromOffset(16, 10), UDim2.fromOffset(260, 28), Enum.Font.GothamBold)
+local homePage, homeCard = makePage(
+    "Home",
+    "Home",
+    "Gems and class tools."
+)
+
+local gemsDisplay = label(
+    homeCard,
+    "Gems: Loading...",
+    16,
+    WHITE,
+    UDim2.fromOffset(16, 10),
+    UDim2.fromOffset(260, 28),
+    Enum.Font.GothamBold
+)
 
 -- ==========================================================
 -- SUPER HYPER GEMS FARM LOGIC
 -- ==========================================================
-local ArcadeFolder = ReplicatedStorage:WaitForChild("Arcade", 5)
-local ArcadeReport = ArcadeFolder and ArcadeFolder:WaitForChild("ArcadeReport", 5)
-local ArcadeSession = ArcadeFolder and ArcadeFolder:WaitForChild("ArcadeSession", 5)
+local ArcadeFolder = ReplicatedStorage:WaitForChild(
+    "Arcade",
+    5
+)
+
+local ArcadeReport = ArcadeFolder
+    and ArcadeFolder:WaitForChild("ArcadeReport", 5)
+
+local ArcadeSession = ArcadeFolder
+    and ArcadeFolder:WaitForChild("ArcadeSession", 5)
 
 pcall(function()
-    local ArcadeConfig = require(ArcadeFolder:WaitForChild("ArcadeConfig"))
+    local ArcadeConfig = require(
+        ArcadeFolder:WaitForChild("ArcadeConfig")
+    )
+
     ArcadeConfig.Machine.CameraFlyTime = 0
 end)
 
-local superHyperGemsFlags = { AutoFarmGems = false, TotalFarmedGems = 0 }
+local superHyperGemsFlags = {
+    AutoFarmGems = false,
+    TotalFarmedGems = 0
+}
 
 RunService.RenderStepped:Connect(function()
     if superHyperGemsFlags.AutoFarmGems then
         player:SetAttribute("ArcadePlaying", nil)
         player:SetAttribute("NeedleInputLocked", nil)
-        local arcadeUi = player:WaitForChild("PlayerGui"):FindFirstChild("ArcadeScreen")
+
+        local arcadeUi = player:WaitForChild("PlayerGui")
+            :FindFirstChild("ArcadeScreen")
+
         if arcadeUi and arcadeUi.Enabled then
             arcadeUi.Enabled = false
         end
@@ -659,24 +1059,42 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local cachedPrompt = nil
+
 local function getPlayPrompt()
-    if cachedPrompt and cachedPrompt.Parent then return cachedPrompt end
-    local machine = workspace:FindFirstChild("Arcade Machine", true)
-    if machine then cachedPrompt = machine:FindFirstChild("PlayPrompt", true) end
+    if cachedPrompt and cachedPrompt.Parent then
+        return cachedPrompt
+    end
+
+    local machine = workspace:FindFirstChild(
+        "Arcade Machine",
+        true
+    )
+
+    if machine then
+        cachedPrompt = machine:FindFirstChild(
+            "PlayPrompt",
+            true
+        )
+    end
+
     if not cachedPrompt then
         for _, prompt in ipairs(workspace:GetDescendants()) do
-            if prompt:IsA("ProximityPrompt") and prompt.Name == "PlayPrompt" then
+            if prompt:IsA("ProximityPrompt")
+                and prompt.Name == "PlayPrompt" then
+
                 cachedPrompt = prompt
                 break
             end
         end
     end
+
     if cachedPrompt then
         cachedPrompt.HoldDuration = 0
         cachedPrompt.MaxActivationDistance = math.huge
         cachedPrompt.RequiresLineOfSight = false
         cachedPrompt.ClickablePrompt = true
     end
+
     return cachedPrompt
 end
 
@@ -686,6 +1104,7 @@ local function startWorker()
             if superHyperGemsFlags.AutoFarmGems then
                 pcall(function()
                     local prompt = getPlayPrompt()
+
                     if prompt then
                         if fireproximityprompt then
                             fireproximityprompt(prompt, 0)
@@ -694,10 +1113,26 @@ local function startWorker()
                             prompt:InputHoldEnd()
                         end
                     end
-                    if ArcadeReport then ArcadeReport:FireServer("kills", 40, 2) end
+
+                    if ArcadeReport then
+                        ArcadeReport:FireServer(
+                            "kills",
+                            40,
+                            2
+                        )
+                    end
+
                     superHyperGemsFlags.TotalFarmedGems += 624
-                    if ArcadeSession then ArcadeSession:FireServer("quit", 1, 6240) end
+
+                    if ArcadeSession then
+                        ArcadeSession:FireServer(
+                            "quit",
+                            1,
+                            6240
+                        )
+                    end
                 end)
+
                 task.wait()
             else
                 task.wait(0.2)
@@ -706,36 +1141,95 @@ local function startWorker()
     end)
 end
 
-for _ = 1, 4 do startWorker() end
+for _ = 1, 4 do
+    startWorker()
+end
 
-makeToggle(homeCard, "Super Hyper Gems Farm", 2, function(on)
-    superHyperGemsFlags.AutoFarmGems = on
-    if not on then
-        task.spawn(function()
-            pcall(function()
-                player:SetAttribute("ArcadePlaying", nil)
-                player:SetAttribute("NeedleInputLocked", nil)
-                if ArcadeSession then ArcadeSession:FireServer("quit", 1, 0) end
-                local camera = workspace.CurrentCamera
-                if camera and player.Character then
-                    local humanoid = player.Character:FindFirstChild("Humanoid")
-                    if humanoid then
-                        camera.CameraType = Enum.CameraType.Custom
-                        camera.CameraSubject = humanoid
-                        humanoid.Health = 0
+makeToggle(
+    homeCard,
+    "Super Hyper Gems Farm",
+    2,
+    function(on)
+        superHyperGemsFlags.AutoFarmGems = on
+
+        if not on then
+            task.spawn(function()
+                pcall(function()
+                    player:SetAttribute(
+                        "ArcadePlaying",
+                        nil
+                    )
+
+                    player:SetAttribute(
+                        "NeedleInputLocked",
+                        nil
+                    )
+
+                    if ArcadeSession then
+                        ArcadeSession:FireServer(
+                            "quit",
+                            1,
+                            0
+                        )
                     end
-                end
-                local arcadeUi = player:WaitForChild("PlayerGui"):FindFirstChild("ArcadeScreen")
-                if arcadeUi then arcadeUi.Enabled = false end
-            end)
-        end)
-    end 
-end)
 
-local classes = {"Starter","Pack Mule","Hay Merchant","Forkmaster","Demolitionist","Prospector","Drone Specialist","Hoover","Ultimate Farmer","The Chosen One"}
+                    local camera = workspace.CurrentCamera
+
+                    if camera and player.Character then
+                        local humanoid =
+                            player.Character:FindFirstChild(
+                                "Humanoid"
+                            )
+
+                        if humanoid then
+                            camera.CameraType =
+                                Enum.CameraType.Custom
+
+                            camera.CameraSubject =
+                                humanoid
+
+                            humanoid.Health = 0
+                        end
+                    end
+
+                    local arcadeUi =
+                        player:WaitForChild("PlayerGui")
+                        :FindFirstChild("ArcadeScreen")
+
+                    if arcadeUi then
+                        arcadeUi.Enabled = false
+                    end
+                end)
+            end)
+        end
+    end
+)
+
+local classes = {
+    "Starter",
+    "Pack Mule",
+    "Hay Merchant",
+    "Forkmaster",
+    "Demolitionist",
+    "Prospector",
+    "Drone Specialist",
+    "Hoover",
+    "Ultimate Farmer",
+    "The Chosen One"
+}
+
 local selectedClasses = {}
 
-local classStatus = label(homeCard, "Selected classes: 0", 13, GRAY, UDim2.fromOffset(16, 100), UDim2.fromOffset(250, 22), Enum.Font.Gotham)
+local classStatus = label(
+    homeCard,
+    "Selected classes: 0",
+    13,
+    GRAY,
+    UDim2.fromOffset(16, 100),
+    UDim2.fromOffset(250, 22),
+    Enum.Font.Gotham
+)
+
 local classButton = Instance.new("TextButton")
 classButton.AutoButtonColor = false
 classButton.BackgroundColor3 = OFF
@@ -746,19 +1240,42 @@ classButton.TextColor3 = WHITE
 classButton.Position = UDim2.fromOffset(16, 128)
 classButton.Size = UDim2.fromOffset(190, 36)
 classButton.Parent = homeCard
+
 corner(classButton, 8)
 
-local classPopup = frame(homePage, CARD, UDim2.fromOffset(10, 62), UDim2.fromOffset(416, 265))
+local classPopup = frame(
+    homePage,
+    CARD,
+    UDim2.fromOffset(10, 62),
+    UDim2.fromOffset(416, 265)
+)
+
 classPopup.Visible = false
 classPopup.ZIndex = 20
+
 corner(classPopup, 10)
 stroke(classPopup, RED, 1)
 
-local popupHeader = frame(classPopup, BG, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 40))
+local popupHeader = frame(
+    classPopup,
+    BG,
+    UDim2.fromOffset(0, 0),
+    UDim2.new(1, 0, 0, 40)
+)
+
 popupHeader.BackgroundTransparency = 1
 popupHeader.ZIndex = 21
 
-local popupTitle = label(popupHeader, "Select Classes", 16, WHITE, UDim2.fromOffset(14, 8), UDim2.fromOffset(200, 24), Enum.Font.GothamBold)
+local popupTitle = label(
+    popupHeader,
+    "Select Classes",
+    16,
+    WHITE,
+    UDim2.fromOffset(14, 8),
+    UDim2.fromOffset(200, 24),
+    Enum.Font.GothamBold
+)
+
 popupTitle.ZIndex = 22
 
 local popupClose = Instance.new("TextButton")
@@ -772,9 +1289,18 @@ popupClose.Position = UDim2.new(1, -10, 0, 8)
 popupClose.Size = UDim2.fromOffset(24, 24)
 popupClose.ZIndex = 22
 popupClose.Parent = popupHeader
-popupClose.MouseButton1Click:Connect(function() classPopup.Visible = false end)
 
-local popupDivider = frame(classPopup, LINE, UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 1))
+popupClose.MouseButton1Click:Connect(function()
+    classPopup.Visible = false
+end)
+
+local popupDivider = frame(
+    classPopup,
+    LINE,
+    UDim2.fromOffset(0, 40),
+    UDim2.new(1, 0, 0, 1)
+)
+
 popupDivider.ZIndex = 21
 
 local classList = Instance.new("ScrollingFrame")
@@ -791,8 +1317,13 @@ local classLayout = Instance.new("UIListLayout")
 classLayout.Padding = UDim.new(0, 4)
 classLayout.Parent = classList
 
-classLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    classList.CanvasSize = UDim2.fromOffset(0, classLayout.AbsoluteContentSize.Y)
+classLayout:GetPropertyChangedSignal(
+    "AbsoluteContentSize"
+):Connect(function()
+    classList.CanvasSize = UDim2.fromOffset(
+        0,
+        classLayout.AbsoluteContentSize.Y
+    )
 end)
 
 local clearClasses = Instance.new("TextButton")
@@ -806,6 +1337,7 @@ clearClasses.Position = UDim2.fromOffset(12, 222)
 clearClasses.Size = UDim2.fromOffset(100, 30)
 clearClasses.ZIndex = 22
 clearClasses.Parent = classPopup
+
 corner(clearClasses, 6)
 
 local closePopupBtn = Instance.new("TextButton")
@@ -819,12 +1351,20 @@ closePopupBtn.Position = UDim2.fromOffset(304, 222)
 closePopupBtn.Size = UDim2.fromOffset(100, 30)
 closePopupBtn.ZIndex = 22
 closePopupBtn.Parent = classPopup
+
 corner(closePopupBtn, 6)
-closePopupBtn.MouseButton1Click:Connect(function() classPopup.Visible = false end)
+
+closePopupBtn.MouseButton1Click:Connect(function()
+    classPopup.Visible = false
+end)
 
 local function updateClassCount()
     local n = 0
-    for _ in pairs(selectedClasses) do n += 1 end
+
+    for _ in pairs(selectedClasses) do
+        n += 1
+    end
+
     classStatus.Text = "Selected classes: " .. n
 end
 
@@ -840,30 +1380,52 @@ for _, name in ipairs(classes) do
     b.Size = UDim2.new(1, -8, 0, 30)
     b.ZIndex = 22
     b.Parent = classList
+
     corner(b, 6)
     stroke(b, LINE, 1)
 
     b.MouseButton1Click:Connect(function()
-        selectedClasses[name] = not selectedClasses[name] and true or nil
-        b.Text = (selectedClasses[name] and " [ ✓ ] " or " [ ] ") .. name
-        b.BackgroundColor3 = selectedClasses[name] and RED_DARK or OFF
+        selectedClasses[name] =
+            not selectedClasses[name]
+            and true
+            or nil
+
+        b.Text =
+            (selectedClasses[name]
+                and " [ ✓ ] "
+                or " [ ] ")
+            .. name
+
+        b.BackgroundColor3 =
+            selectedClasses[name]
+            and RED_DARK
+            or OFF
+
         updateClassCount()
-    end) 
+    end)
 end
 
 clearClasses.MouseButton1Click:Connect(function()
     table.clear(selectedClasses)
+
     for _, b in ipairs(classList:GetChildren()) do
         if b:IsA("TextButton") then
-            local name = b.Text:gsub("^%s*%[[%s✓%]%]%s", "")
+            local name = b.Text:gsub(
+                "^%s*%[[%s✓%]%]%s",
+                ""
+            )
+
             b.Text = " [ ] " .. name
             b.BackgroundColor3 = OFF
         end
     end
+
     updateClassCount()
 end)
 
-classButton.MouseButton1Click:Connect(function() classPopup.Visible = not classPopup.Visible end)
+classButton.MouseButton1Click:Connect(function()
+    classPopup.Visible = not classPopup.Visible
+end)
 
 local rollButton = Instance.new("TextButton")
 rollButton.AutoButtonColor = false
@@ -875,26 +1437,71 @@ rollButton.TextColor3 = WHITE
 rollButton.Position = UDim2.fromOffset(216, 128)
 rollButton.Size = UDim2.fromOffset(190, 36)
 rollButton.Parent = homeCard
+
 corner(rollButton, 8)
+
 local rolling = false
+
 rollButton.MouseButton1Click:Connect(function()
     local count = 0
-    for _ in pairs(selectedClasses) do count += 1 end
-    if count == 0 then rollButton.Text = "Select a class"; task.delay(1, function() if not rolling then rollButton.Text = "Roll Selected" end end); return end
+
+    for _ in pairs(selectedClasses) do
+        count += 1
+    end
+
+    if count == 0 then
+        rollButton.Text = "Select a class"
+
+        task.delay(1, function()
+            if not rolling then
+                rollButton.Text = "Roll Selected"
+            end
+        end)
+
+        return
+    end
+
     rolling = not rolling
-    rollButton.Text = rolling and "Rolling..." or "Roll Selected"
-    rollButton.BackgroundColor3 = rolling and RED_DARK or OFF
+
+    rollButton.Text =
+        rolling
+        and "Rolling..."
+        or "Roll Selected"
+
+    rollButton.BackgroundColor3 =
+        rolling
+        and RED_DARK
+        or OFF
+
     if rolling then
         task.spawn(function()
-            local event = ReplicatedStorage:FindFirstChild("ClassSystem") and ReplicatedStorage.ClassSystem:FindFirstChild("RollClass")
+            local event =
+                ReplicatedStorage:FindFirstChild(
+                    "ClassSystem"
+                )
+                and ReplicatedStorage.ClassSystem:FindFirstChild(
+                    "RollClass"
+                )
+
             while rolling and event do
-                local ok, result = pcall(function() return event:InvokeServer() end)
-                if ok and type(result) == "table" and selectedClasses[result.className] then
+                local ok, result = pcall(function()
+                    return event:InvokeServer()
+                end)
+
+                if ok
+                    and type(result) == "table"
+                    and selectedClasses[result.className] then
+
                     rolling = false
-                    rollButton.Text = "FOUND: " .. tostring(result.className)
+
+                    rollButton.Text =
+                        "FOUND: "
+                        .. tostring(result.className)
+
                     rollButton.BackgroundColor3 = RED
                     break
                 end
+
                 task.wait(0.1)
             end
         end)
@@ -911,246 +1518,557 @@ fastGemsBtn.TextColor3 = WHITE
 fastGemsBtn.Position = UDim2.fromOffset(16, 175)
 fastGemsBtn.Size = UDim2.fromOffset(390, 36)
 fastGemsBtn.Parent = homeCard
+
 corner(fastGemsBtn, 8)
 
 fastGemsBtn.MouseButton1Click:Connect(function()
     fastGemsBtn.Text = "Executing..."
     fastGemsBtn.BackgroundColor3 = RED_DARK
+
     task.spawn(function()
         pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/vlxebeclv/Search-For-The-Needle-Gem-Farm-v4/main/neeeeeeeee.lua"))()
+            loadstring(game:HttpGet(
+                "https://raw.githubusercontent.com/vlxebeclv/Search-For-The-Needle-Gem-Farm-v4/main/neeeeeeeee.lua"
+            ))()
         end)
+
         task.wait(1)
+
         fastGemsBtn.Text = "Executed!"
+
         task.wait(2)
+
         fastGemsBtn.Text = "Fast Auto Gems Farm"
         fastGemsBtn.BackgroundColor3 = OFF
     end)
 end)
 
-LoadingScreen.SetProgress(20, "Home buttons loaded")
+LoadingScreen.SetProgress(
+    20,
+    "Home buttons loaded"
+)
 
 -- ===== Main Farm Tab =====
-local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Hay, Gem, & Needle harvesting.")
-combatCard.CanvasSize = UDim2.fromOffset(0, 330)
+local combatPage, combatCard = makePage(
+    "Combat",
+    "Main Farm",
+    "Automatic Hay, Gem, & Needle harvesting."
+)
+
+combatCard.CanvasSize = UDim2.fromOffset(0, 390)
 
 local needleAuto = false
-local needleCharacter, needleHumanoid, needleRoot
-local needleFlyConnection, needleCameraConnection
-local needleCameraFocused = false
-local needleFlying = false
-local needleSpeed = 50
-local needleInteractions = 3
+local needleCharacter
+local needleHumanoid
+local needleRoot
+local needleBusy = false
 
 local function refreshNeedleCharacter(char)
-    needleCharacter = char
-    needleHumanoid = char and char:FindFirstChildOfClass("Humanoid")
-    needleRoot = char and char:FindFirstChild("HumanoidRootPart")
+    needleCharacter = char or player.Character
+
+    needleHumanoid =
+        needleCharacter
+        and needleCharacter:FindFirstChildOfClass(
+            "Humanoid"
+        )
+
+    needleRoot =
+        needleCharacter
+        and needleCharacter:FindFirstChild(
+            "HumanoidRootPart"
+        )
 end
-do
-    local char = player.Character
-    if char then
-        refreshNeedleCharacter(char)
-    else
-        refreshNeedleCharacter(nil)
-        task.spawn(function()
-            local newChar = player.Character or player.CharacterAdded:Wait()
-            refreshNeedleCharacter(newChar)
-        end)
+
+refreshNeedleCharacter(player.Character)
+
+local NeedleFolder =
+    workspace:WaitForChild(
+        "NeedleObjectiveServer",
+        5
+    )
+
+local function getNeedleCandidates()
+    local candidates = {}
+
+    if not NeedleFolder then
+        return candidates
     end
+
+    local function addCandidate(obj)
+        if not obj or obj == NeedleFolder then
+            return
+        end
+
+        local name = obj.Name:lower()
+
+        if name:find("needle", 1, true) then
+            if obj:IsA("BasePart")
+                or obj:IsA("Model") then
+
+                table.insert(candidates, obj)
+                return
+            end
+
+            local part =
+                obj:FindFirstChildWhichIsA(
+                    "BasePart",
+                    true
+                )
+
+            if part then
+                table.insert(candidates, obj)
+                return
+            end
+        end
+
+        if (
+            obj:IsA("BasePart")
+            or obj:IsA("Model")
+        )
+            and obj:FindFirstChildWhichIsA(
+                "ProximityPrompt",
+                true
+            ) then
+
+            table.insert(candidates, obj)
+        end
+    end
+
+    for _, obj in ipairs(
+        NeedleFolder:GetDescendants()
+    ) do
+        addCandidate(obj)
+    end
+
+    for _, obj in ipairs(
+        NeedleFolder:GetChildren()
+    ) do
+        addCandidate(obj)
+    end
+
+    local unique = {}
+    local result = {}
+
+    for _, obj in ipairs(candidates) do
+        if not unique[obj] then
+            unique[obj] = true
+            table.insert(result, obj)
+        end
+    end
+
+    return result
 end
 
 local function getNeedle()
-    local mainFolder = workspace:FindFirstChild("Main")
-    local n = mainFolder and mainFolder:FindFirstChild("Needle")
-    return n
+    local mainFolder =
+        workspace:FindFirstChild("Main")
+
+    local n =
+        mainFolder
+        and mainFolder:FindFirstChild("Needle")
+
+    if n then
+        return n
+    end
+
+    local candidates = getNeedleCandidates()
+
+    for _, candidate in ipairs(candidates) do
+        if candidate.Parent then
+            return candidate
+        end
+    end
+
+    return nil
 end
 
-local function getNeedlePart(n)
-    if not n then return nil end
-    if n:IsA("BasePart") then return n end
-    if n.PrimaryPart then return n.PrimaryPart end
-    return n:FindFirstChildWhichIsA("BasePart", true)
+local function getNeedlePosition(needle)
+    if not needle then
+        return nil
+    end
+
+    if needle:IsA("BasePart") then
+        return needle.Position
+    end
+
+    if needle:IsA("Model") then
+        if needle.PrimaryPart then
+            return needle.PrimaryPart.Position
+        end
+
+        local part =
+            needle:FindFirstChildWhichIsA(
+                "BasePart",
+                true
+            )
+
+        if part then
+            return part.Position
+        end
+    end
+
+    return nil
 end
 
-local function stopNeedleFly()
-    needleFlying = false
-    if needleFlyConnection then needleFlyConnection:Disconnect(); needleFlyConnection = nil end
-    if needleRoot then
-        local bv = needleRoot:FindFirstChild("NeedleFlyVelocity")
-        if bv then bv:Destroy() end
-        local bg = needleRoot:FindFirstChild("NeedleFlyGyro")
-        if bg then bg:Destroy() end
+local function equipTool(tool)
+    refreshNeedleCharacter()
+
+    if not needleHumanoid or not tool then
+        return false
+    end
+
+    pcall(function()
+        needleHumanoid:EquipTool(tool)
+    end)
+
+    task.wait(0.12)
+
+    return tool.Parent == needleCharacter
+end
+
+local function getTools()
+    local char = player.Character
+    local backpack =
+        player:FindFirstChildOfClass("Backpack")
+
+    local found = {
+        hay = {},
+        vacuum = {},
+        pitchfork = {},
+        tnt = {}
+    }
+
+    local function scan(container)
+        if not container then
+            return
+        end
+
+        for _, obj in ipairs(
+            container:GetChildren()
+        ) do
+            if obj:IsA("Tool") then
+                local n = obj.Name:lower()
+
+                if n:find("tnt") then
+                    table.insert(found.tnt, obj)
+
+                elseif n:find("vacuum") then
+                    table.insert(found.vacuum, obj)
+
+                elseif n:find("pitchfork")
+                    or n:find("fork") then
+
+                    table.insert(
+                        found.pitchfork,
+                        obj
+                    )
+
+                elseif n:find("hay")
+                    or n:find("pick") then
+
+                    table.insert(
+                        found.hay,
+                        obj
+                    )
+                end
+            end
+        end
+    end
+
+    scan(backpack)
+    scan(char)
+
+    return found
+end
+
+local function activateTool(
+    tool,
+    count,
+    delayTime
+)
+    if not tool then
+        return
+    end
+
+    count = count or 1
+    delayTime = delayTime or 0.12
+
+    refreshNeedleCharacter()
+
+    if not needleHumanoid then
+        return
+    end
+
+    equipTool(tool)
+
+    for _ = 1, count do
+        if not needleAuto then
+            return
+        end
+
+        pcall(function()
+            tool:Activate()
+        end)
+
+        task.wait(delayTime)
     end
 end
 
-local function forcePlayerCamera()
-    local cam = workspace.CurrentCamera
-    if cam and needleHumanoid then cam.CameraType = Enum.CameraType.Custom; cam.CameraSubject = needleHumanoid end
+local function useAllToolsOnNeedle()
+    local tools = getTools()
+
+    if tools.hay[1] then
+        activateTool(
+            tools.hay[1],
+            2,
+            0.08
+        )
+    end
+
+    if tools.pitchfork[1] then
+        activateTool(
+            tools.pitchfork[1],
+            2,
+            0.08
+        )
+    end
+
+    if tools.vacuum[1] then
+        activateTool(
+            tools.vacuum[1],
+            2,
+            0.08
+        )
+    end
+
+    if tools.tnt[1] then
+        activateTool(
+            tools.tnt[1],
+            1,
+            0.10
+        )
+    end
 end
 
-local function stopNeedleCamera()
-    needleCameraFocused = false
-    if needleCameraConnection then needleCameraConnection:Disconnect(); needleCameraConnection = nil end
-    forcePlayerCamera()
-end
+local function pickNeedleWithTools()
+    local deadline = os.clock() + 4
 
-local function startNeedleFly()
-    if not needleRoot then return end
-    stopNeedleFly()
-    needleFlying = true
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "NeedleFlyVelocity"
-    bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-    bv.Parent = needleRoot
-    local bg = Instance.new("BodyGyro")
-    bg.Name = "NeedleFlyGyro"
-    bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-    bg.Parent = needleRoot
-    if needleHumanoid then needleHumanoid.PlatformStand = true end
-    needleFlyConnection = RunService.RenderStepped:Connect(function()
-        if not needleFlying or not needleRoot or not needleRoot.Parent then return end
-        local cam = workspace.CurrentCamera
-        if not cam then return end
-        local dir = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += cam.CFrame.UpVector end
-        if dir.Magnitude > 0 then dir = dir.Unit end
-        bv.Velocity = dir * needleSpeed
-        if dir.Magnitude > 0 then bg.CFrame = needleRoot.CFrame:Lerp(CFrame.lookAt(needleRoot.Position, needleRoot.Position + dir), 0.3) end
-    end)
-end
+    while needleAuto
+        and getNeedle()
+        and os.clock() < deadline do
 
-local function focusNeedleCamera()
-    if needleCameraConnection then needleCameraConnection:Disconnect() end
-    local cam = workspace.CurrentCamera
-    if not cam then return end
-    needleCameraFocused = true
-    cam.CameraType = Enum.CameraType.Scriptable
-    needleCameraConnection = RunService.RenderStepped:Connect(function()
-        if not needleCameraFocused then return end
-        local part = getNeedlePart(getNeedle())
-        if not part or not needleRoot then return end
-        local camNow = workspace.CurrentCamera
-        if camNow then camNow.CFrame = CFrame.lookAt(needleRoot.Position + Vector3.new(0, 2, 5), part.Position) end
-    end)
-end
-
-local function pressNeedleE()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
-end
-
-local function autoPickNeedleOnce()
-    refreshNeedleCharacter(player.Character)
-    if not needleRoot then return end
-    local part = getNeedlePart(getNeedle())
-    if not part then return end
-    local pos = part.Position - part.CFrame.LookVector * 3
-    needleRoot.CFrame = CFrame.lookAt(Vector3.new(pos.X, part.Position.Y, pos.Z), part.Position)
-    focusNeedleCamera()
-    for _ = 1, needleInteractions do
-        if not needleAuto then break end
-        pressNeedleE()
+        useAllToolsOnNeedle()
         task.wait(0.1)
     end
-    stopNeedleCamera()
-    if needleAuto then startNeedleFly() end
+
+    return not getNeedle()
+end
+
+local function handInNeedleToNPC()
+    local npc =
+        workspace:FindFirstChild("NPC")
+        and workspace.NPC:FindFirstChild(
+            "Farmer_NPC"
+        )
+
+    refreshNeedleCharacter()
+
+    if npc and needleRoot then
+        local npcPos =
+            getNeedlePosition(npc)
+            or npc:GetPivot().Position
+
+        pcall(function()
+            needleRoot.CFrame = CFrame.new(
+                npcPos + Vector3.new(0, 3, 3),
+                npcPos
+            )
+        end)
+
+        task.wait(0.3)
+    end
+
+    pcall(function()
+        ReplicatedStorage
+            :WaitForChild("NeedleHaystack")
+            :WaitForChild("NeedleHandIn")
+            :FireServer()
+    end)
+end
+
+local function processNeedleObjective()
+    if needleBusy or not needleAuto then
+        return
+    end
+
+    local needle = getNeedle()
+
+    if not needle then
+        return
+    end
+
+    needleBusy = true
+
+    refreshNeedleCharacter()
+
+    local pos = getNeedlePosition(needle)
+
+    if needleRoot and pos then
+        pcall(function()
+            needleRoot.CFrame = CFrame.new(
+                pos + Vector3.new(0, 3, 0)
+            )
+        end)
+
+        task.wait(0.35)
+
+        if needleAuto then
+            local picked =
+                pickNeedleWithTools()
+
+            if needleAuto and picked then
+                handInNeedleToNPC()
+                task.wait(0.5)
+            end
+        end
+    end
+
+    needleBusy = false
 end
 
 local function startAutoNeedleLoop()
     task.spawn(function()
-        while needleAuto and gui.Parent do
-            pcall(autoPickNeedleOnce)
-            task.wait(0.5)
+        while needleAuto
+            and gui.Parent do
+
+            pcall(processNeedleObjective)
+
+            task.wait(0.35)
         end
     end)
 end
 
 local function stopAutoNeedle()
-    stopNeedleFly()
-    stopNeedleCamera()
-    if needleHumanoid then needleHumanoid.PlatformStand = false end
+    needleBusy = false
 end
 
--- 1. Auto Pick Needle
-makeToggleWithSub(combatCard, "Auto Pick Needle", nil, 6, function(on)
-    needleAuto = on
-    if on then startAutoNeedleLoop() else stopAutoNeedle() end
-end)
+-- 1. Auto Pick Needle Toggle
+makeToggleWithSub(
+    combatCard,
+    "Auto Pick Needle",
+    "(uses tools & TPs to Farmer NPC)",
+    6,
+    function(on)
+        needleAuto = on
 
--- Shared hay state is declared before Auto Sell because selling can restart
--- the vacuum after teleporting.
+        if on then
+            startAutoNeedleLoop()
+        else
+            stopAutoNeedle()
+        end
+    end
+)
+
+-- Shared hay state
 local autoCollectHay = false
 local vacuumStarted = false
 local VacuumAction = nil
 local lastHaySeen = 0
 local lastVacuumRefresh = 0
+
 -- 2. Auto Sell Hay
 local autoSellHay = false
 local isSellingHay = false
-local restartHayVacuum -- assigned after the hay-tool functions are created
+local restartHayVacuum
 
--- Read a number even if the game's UI formats it like "12/20", "12 / 20",
--- "12 Hay", etc. This makes the sell check work even when the inventory
--- temporarily goes OVER the displayed maximum.
 local function readFirstNumber(value)
-    if value == nil then return nil end
-    -- Roblox UI can format hay amounts with thousands separators, e.g.
-    -- "1,207". Remove commas before converting so overflow is detected.
+    if value == nil then
+        return nil
+    end
+
     local text = tostring(value):gsub(",", "")
-    local numberText = text:match("%-?%d+%.?%d*")
-    return numberText and tonumber(numberText) or nil
+
+    local numberText =
+        text:match("%-?%d+%.?%d*")
+
+    return numberText
+        and tonumber(numberText)
+        or nil
 end
 
 local function readCapacityPair(value)
-    if value == nil then return nil, nil end
-    -- Supports "953/1,207", "953 / 1,207", etc.
+    if value == nil then
+        return nil, nil
+    end
+
     local text = tostring(value):gsub(",", "")
-    local a, b = text:match("(%d+)%s*/%s*(%d+)")
+
+    local a, b =
+        text:match("(%d+)%s*/%s*(%d+)")
+
     if a and b then
         return tonumber(a), tonumber(b)
     end
+
     return nil, nil
 end
 
 local function sellAndReturnHay()
-    if isSellingHay then return end
+    if isSellingHay then
+        return
+    end
+
     isSellingHay = true
 
-    -- Stop the vacuum BEFORE teleporting. Leaving it running while moving to
-    -- the sell area can leave the server-side vacuum session invalid.
     if vacuumStarted and VacuumAction then
         pcall(function()
             VacuumAction:FireServer("Stop")
         end)
+
         vacuumStarted = false
     end
 
     pcall(function()
-        local char = player.Character or player.CharacterAdded:Wait()
-        local root = char:WaitForChild("HumanoidRootPart")
-        local sellPart = workspace:WaitForChild("SellModel"):WaitForChild("SellPart")
-        local sellEvent = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("SellHay")
+        local char =
+            player.Character
+            or player.CharacterAdded:Wait()
+
+        local root =
+            char:WaitForChild(
+                "HumanoidRootPart"
+            )
+
+        local sellPart =
+            workspace:WaitForChild(
+                "SellModel"
+            ):WaitForChild("SellPart")
+
+        local sellEvent =
+            ReplicatedStorage
+            :WaitForChild("NeedleHaystack")
+            :WaitForChild("SellHay")
 
         local originalCFrame = root.CFrame
-        root.CFrame = sellPart.CFrame + Vector3.new(0, 3, 0)
+
+        root.CFrame =
+            sellPart.CFrame
+            + Vector3.new(0, 3, 0)
 
         task.wait(0.25)
+
         sellEvent:FireServer()
+
         task.wait(0.45)
 
         if root and root.Parent then
             root.CFrame = originalCFrame
         end
 
-        -- Start a fresh vacuum session after returning to the hay area.
         task.wait(0.15)
-        if autoCollectHay and restartHayVacuum then
+
+        if autoCollectHay
+            and restartHayVacuum then
+
             restartHayVacuum()
         end
     end)
@@ -1160,73 +2078,135 @@ end
 
 task.spawn(function()
     while gui and gui.Parent do
-        if autoSellHay and not isSellingHay then
-            pcall(function()
-                local playerGui = player:FindFirstChild("PlayerGui")
-                local hud = playerGui and playerGui:FindFirstChild("HUD")
+        if autoSellHay
+            and not isSellingHay then
 
-                -- Do not depend on one exact HUD layout. The game can rebuild
-                -- the Capacity UI, and the text can temporarily show overflow.
-                local function findDescendant(parent, name)
-                    if not parent then return nil end
-                    local direct = parent:FindFirstChild(name)
-                    if direct then return direct end
-                    for _, obj in ipairs(parent:GetDescendants()) do
+            pcall(function()
+                local playerGui =
+                    player:FindFirstChild(
+                        "PlayerGui"
+                    )
+
+                local hud =
+                    playerGui
+                    and playerGui:FindFirstChild(
+                        "HUD"
+                    )
+
+                local function findDescendant(
+                    parent,
+                    name
+                )
+                    if not parent then
+                        return nil
+                    end
+
+                    local direct =
+                        parent:FindFirstChild(name)
+
+                    if direct then
+                        return direct
+                    end
+
+                    for _, obj in ipairs(
+                        parent:GetDescendants()
+                    ) do
                         if obj.Name == name then
                             return obj
                         end
                     end
+
                     return nil
                 end
 
-                local capacityUI = findDescendant(hud, "Capacity")
-                local currentAmount = findDescendant(capacityUI or hud, "CurrentAmount")
-                local totalCapacity = findDescendant(capacityUI or hud, "TotalCapacity")
+                local capacityUI =
+                    findDescendant(
+                        hud,
+                        "Capacity"
+                    )
+
+                local currentAmount =
+                    findDescendant(
+                        capacityUI or hud,
+                        "CurrentAmount"
+                    )
+
+                local totalCapacity =
+                    findDescendant(
+                        capacityUI or hud,
+                        "TotalCapacity"
+                    )
 
                 local function textValue(obj)
-                    if not obj then return nil end
-                    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                    if not obj then
+                        return nil
+                    end
+
+                    if obj:IsA("TextLabel")
+                        or obj:IsA("TextButton")
+                        or obj:IsA("TextBox") then
+
                         return obj.Text
                     end
-                    local ok, value = pcall(function() return obj.Value end)
-                    if ok and value ~= nil then return tostring(value) end
+
+                    local ok, value =
+                        pcall(function()
+                            return obj.Value
+                        end)
+
+                    if ok and value ~= nil then
+                        return tostring(value)
+                    end
+
                     return nil
                 end
 
-                local currentText = textValue(currentAmount)
-                local maxText = textValue(totalCapacity)
-                local current = readFirstNumber(currentText)
-                local maximum = readFirstNumber(maxText)
+                local currentText =
+                    textValue(currentAmount)
 
-                -- The game's BottomLeft.Capacity UI uses separate labels for
-                -- current hay and maximum capacity. The current label can be
-                -- formatted with commas, e.g. "1,207", so parse the FULL
-                -- number rather than stopping at the first digit.
-                --
-                -- Capacity display may also be a single "MAX/CURRENT" label.
-                -- In that format the FIRST number is MAX and the SECOND is
-                -- CURRENT, and CURRENT is allowed to overflow indefinitely.
-                local pairMax, pairCurrent = readCapacityPair(currentText)
+                local maxText =
+                    textValue(totalCapacity)
+
+                local current =
+                    readFirstNumber(currentText)
+
+                local maximum =
+                    readFirstNumber(maxText)
+
+                local pairMax, pairCurrent =
+                    readCapacityPair(currentText)
+
                 if pairMax and pairCurrent then
                     maximum = pairMax
                     current = pairCurrent
                 end
-                local pairMax2, pairCurrent2 = readCapacityPair(maxText)
+
+                local pairMax2, pairCurrent2 =
+                    readCapacityPair(maxText)
+
                 if pairMax2 and pairCurrent2 then
                     maximum = pairMax2
                     current = pairCurrent2
                 end
 
-                -- If the named TotalCapacity node was rebuilt/missing, look
-                -- for a capacity-like text containing a slash as a fallback.
                 if not maximum and hud then
-                    for _, obj in ipairs(hud:GetDescendants()) do
-                        if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-                            local txt = tostring(obj.Text or ""):gsub(",", "")
-                            local a, b = txt:match("(%d+)%s*/%s*(%d+)")
+                    for _, obj in ipairs(
+                        hud:GetDescendants()
+                    ) do
+                        if obj:IsA("TextLabel")
+                            or obj:IsA("TextButton") then
+
+                            local txt =
+                                tostring(
+                                    obj.Text or ""
+                                ):gsub(",", "")
+
+                            local a, b =
+                                txt:match(
+                                    "(%d+)%s*/%s*(%d+)"
+                                )
+
                             if a and b then
-                                -- Capacity text is MAX/CURRENT. Keep the
-                                -- overflow value exactly as displayed.
                                 maximum = tonumber(a)
                                 current = tonumber(b)
                                 break
@@ -1235,13 +2215,16 @@ task.spawn(function()
                     end
                 end
 
-                -- >= is intentional: this catches both exactly-full and
-                -- OVERFLOW inventories (e.g. 241/240).
-                if current and maximum and maximum > 0 and current >= maximum then
+                if current
+                    and maximum
+                    and maximum > 0
+                    and current >= maximum then
+
                     sellAndReturnHay()
                 end
             end)
         end
+
         task.wait(0.15)
     end
 end)
@@ -1251,31 +2234,61 @@ local autoPickGems = false
 local gemCollectConnection = nil
 local collectedGemIds = {}
 
--- Place-specific objects are resolved only when the option is actually used.
--- This prevents this GUI from waiting forever in games that do not have GemsClient.
 local GemsClient = nil
 local CollectGem = nil
 
 local function getGemObjects()
-    GemsClient = workspace:FindFirstChild("GemsClient")
-    local nh = ReplicatedStorage:FindFirstChild("NeedleHaystack")
-    CollectGem = nh and nh:FindFirstChild("CollectGem")
+    GemsClient =
+        workspace:FindFirstChild("GemsClient")
+
+    local nh =
+        ReplicatedStorage:FindFirstChild(
+            "NeedleHaystack"
+        )
+
+    CollectGem =
+        nh and nh:FindFirstChild("CollectGem")
+
     return GemsClient, CollectGem
 end
 
 local function collectGemObject(gem)
-    if not autoPickGems or not gem or not gem.Parent then return end
-    local id = tonumber(gem.Name:match("^Gem_(%d+)$"))
-    if not id or collectedGemIds[id] then return end
+    if not autoPickGems
+        or not gem
+        or not gem.Parent then
+
+        return
+    end
+
+    local id =
+        tonumber(
+            gem.Name:match("^Gem_(%d+)$")
+        )
+
+    if not id
+        or collectedGemIds[id] then
+
+        return
+    end
+
     collectedGemIds[id] = true
-    pcall(function() CollectGem:FireServer(id) end)
+
+    pcall(function()
+        CollectGem:FireServer(id)
+    end)
+
     task.delay(1, function()
-        if not gem or not gem.Parent then collectedGemIds[id] = nil end
-    end) 
+        if not gem or not gem.Parent then
+            collectedGemIds[id] = nil
+        end
+    end)
 end
 
 local function scanExistingGems()
-    for _, gem in ipairs(GemsClient:GetChildren()) do
+    for _, gem in ipairs(
+        GemsClient:GetChildren()
+    ) do
+
         if gem.Name:match("^Gem%d+$") then
             collectGemObject(gem)
         end
@@ -1283,21 +2296,35 @@ local function scanExistingGems()
 end
 
 local function startAutoPickGems()
-    local gemFolder, collectEvent = getGemObjects()
-    if not gemFolder or not collectEvent then return end
+    local gemFolder, collectEvent =
+        getGemObjects()
+
+    if not gemFolder or not collectEvent then
+        return
+    end
+
     GemsClient = gemFolder
     CollectGem = collectEvent
+
     if gemCollectConnection then
         gemCollectConnection:Disconnect()
         gemCollectConnection = nil
     end
+
     table.clear(collectedGemIds)
+
     scanExistingGems()
-    gemCollectConnection = GemsClient.ChildAdded:Connect(function(gem)
-        if not autoPickGems then return end
-        task.wait()
-        collectGemObject(gem)
-    end) 
+
+    gemCollectConnection =
+        GemsClient.ChildAdded:Connect(function(gem)
+            if not autoPickGems then
+                return
+            end
+
+            task.wait()
+
+            collectGemObject(gem)
+        end)
 end
 
 local function stopAutoPickGems()
@@ -1305,20 +2332,35 @@ local function stopAutoPickGems()
         gemCollectConnection:Disconnect()
         gemCollectConnection = nil
     end
+
     table.clear(collectedGemIds)
 end
 
-makeToggleWithSub(combatCard, "Auto Pick Gems", nil, 48, function(on)
-    autoPickGems = on
-    if on then startAutoPickGems() else stopAutoPickGems() end
-end)
+makeToggleWithSub(
+    combatCard,
+    "Auto Pick Gems",
+    nil,
+    48,
+    function(on)
+        autoPickGems = on
+
+        if on then
+            startAutoPickGems()
+        else
+            stopAutoPickGems()
+        end
+    end
+)
 
 -- 4. Auto TNT Option
 local autoTNT = false
 local tntBusy = false
 
--- Place-specific Main Farm objects are resolved lazily.
-local NH = ReplicatedStorage:FindFirstChild("NeedleHaystack")
+local NH =
+    ReplicatedStorage:FindFirstChild(
+        "NeedleHaystack"
+    )
+
 local TntAction = nil
 local HeldToolState = nil
 local PickHay = nil
@@ -1326,19 +2368,45 @@ local PitchforkDig = nil
 local hayFolder = nil
 
 local function refreshHayTools()
-    NH = ReplicatedStorage:FindFirstChild("NeedleHaystack")
-    TntAction = NH and NH:FindFirstChild("TntAction")
-    HeldToolState = NH and NH:FindFirstChild("HeldToolState")
-    PickHay = NH and NH:FindFirstChild("PickHay")
-    PitchforkDig = NH and NH:FindFirstChild("PitchforkDig")
-    VacuumAction = NH and NH:FindFirstChild("VacuumAction")
-    hayFolder = workspace:FindFirstChild("HaystackClient")
+    NH =
+        ReplicatedStorage:FindFirstChild(
+            "NeedleHaystack"
+        )
+
+    TntAction =
+        NH and NH:FindFirstChild(
+            "TntAction"
+        )
+
+    HeldToolState =
+        NH and NH:FindFirstChild(
+            "HeldToolState"
+        )
+
+    PickHay =
+        NH and NH:FindFirstChild(
+            "PickHay"
+        )
+
+    PitchforkDig =
+        NH and NH:FindFirstChild(
+            "PitchforkDig"
+        )
+
+    VacuumAction =
+        NH and NH:FindFirstChild(
+            "VacuumAction"
+        )
+
+    hayFolder =
+        workspace:FindFirstChild(
+            "HaystackClient"
+        )
+
     return NH, hayFolder
 end
 
 local function resetTntState()
-    -- If Auto TNT was enabled before the player owned TNT, the previous
-    -- failed attempt can leave the server's held-tool state out of sync.
     if HeldToolState then
         pcall(function()
             HeldToolState:FireServer()
@@ -1347,96 +2415,187 @@ local function resetTntState()
 end
 
 local function getHayPosition(hay)
-    if hay:IsA("BasePart") then return hay.Position end
-    if hay:IsA("Model") then
-        local part = hay.PrimaryPart or hay:FindFirstChildWhichIsA("BasePart")
-        if part then return part.Position end
+    if hay:IsA("BasePart") then
+        return hay.Position
     end
+
+    if hay:IsA("Model") then
+        local part =
+            hay.PrimaryPart
+            or hay:FindFirstChildWhichIsA(
+                "BasePart"
+            )
+
+        if part then
+            return part.Position
+        end
+    end
+
     return nil
 end
 
 local function getHighestHay()
     refreshHayTools()
-    if not hayFolder then return nil end
-    if not TntAction or not HeldToolState then return nil end
+
+    if not hayFolder
+        or not TntAction
+        or not HeldToolState then
+
+        return nil
+    end
+
     local camera = workspace.CurrentCamera
+
     local origin = camera.CFrame.Position
     local look = camera.CFrame.LookVector
+
     local highest = nil
     local highestY = -math.huge
 
-    for _, hay in ipairs(hayFolder:GetChildren()) do
+    for _, hay in ipairs(
+        hayFolder:GetChildren()
+    ) do
+
         if hay.Name == "HayPiece" then
             local pos = getHayPosition(hay)
+
             if pos then
                 local offset = pos - origin
                 local distance = offset.Magnitude
-                if distance <= 30 and distance > 0 then
-                    local dot = math.clamp(look:Dot(offset.Unit), -1, 1)
-                    local angle = math.deg(math.acos(dot))
-                    if angle <= 45 and pos.Y > highestY then
+
+                if distance <= 30
+                    and distance > 0 then
+
+                    local dot =
+                        math.clamp(
+                            look:Dot(offset.Unit),
+                            -1,
+                            1
+                        )
+
+                    local angle =
+                        math.deg(
+                            math.acos(dot)
+                        )
+
+                    if angle <= 45
+                        and pos.Y > highestY then
+
                         highestY = pos.Y
-                        highest = { position = pos, distance = distance }
+
+                        highest = {
+                            position = pos,
+                            distance = distance
+                        }
                     end
                 end
             end
         end
     end
+
     return highest
 end
 
 local function throwAtHighest()
     refreshHayTools()
-    if not TntAction or not HeldToolState then return false end
+
+    if not TntAction
+        or not HeldToolState then
+
+        return false
+    end
 
     local character = player.Character
-    if not character then return false end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
+
+    if not character then
+        return false
+    end
+
+    local root =
+        character:FindFirstChild(
+            "HumanoidRootPart"
+        )
+
+    if not root then
+        return false
+    end
 
     local target = getHighestHay()
-    if not target then return false end
 
-    -- Reset first so buying TNT while Auto TNT is already ON does not require
-    -- toggling the option off and back on.
+    if not target then
+        return false
+    end
+
     resetTntState()
 
-    local startPosition = root.Position + Vector3.new(0, 3, 0)
-    local directionVector = target.position - startPosition
-    if directionVector.Magnitude <= 0 then return false end
+    local startPosition =
+        root.Position
+        + Vector3.new(0, 3, 0)
 
-    local direction = directionVector.Unit
-    local throwCFrame = CFrame.lookAt(startPosition, startPosition + direction)
-    local velocity = direction * 65
+    local directionVector =
+        target.position - startPosition
+
+    if directionVector.Magnitude <= 0 then
+        return false
+    end
+
+    local direction =
+        directionVector.Unit
+
+    local throwCFrame =
+        CFrame.lookAt(
+            startPosition,
+            startPosition + direction
+        )
+
+    local velocity =
+        direction * 65
 
     pcall(function()
         TntAction:FireServer("light")
     end)
+
     task.wait(0.48)
 
     pcall(function()
-        HeldToolState:FireServer("Tnt", "lighting")
+        HeldToolState:FireServer(
+            "Tnt",
+            "lighting"
+        )
     end)
+
     task.wait(0.1)
 
     pcall(function()
-        HeldToolState:FireServer("Tnt", "ready")
+        HeldToolState:FireServer(
+            "Tnt",
+            "ready"
+        )
     end)
+
     task.wait(0.1)
 
     pcall(function()
-        HeldToolState:FireServer("Tnt", "charging")
+        HeldToolState:FireServer(
+            "Tnt",
+            "charging"
+        )
     end)
+
     task.wait(0.2)
 
     pcall(function()
-        TntAction:FireServer("throw", throwCFrame, velocity)
+        TntAction:FireServer(
+            "throw",
+            throwCFrame,
+            velocity
+        )
     end)
+
     task.wait(0.1)
 
-    -- Always clear the held state after an attempt. This is important when
-    -- the first attempts happened before TNT was purchased.
     resetTntState()
+
     return true
 end
 
@@ -1445,16 +2604,16 @@ task.spawn(function()
         if autoTNT then
             if not tntBusy then
                 tntBusy = true
+
                 local didAttempt = false
 
                 pcall(function()
-                    didAttempt = throwAtHighest() == true
+                    didAttempt =
+                        throwAtHighest() == true
                 end)
 
                 tntBusy = false
 
-                -- Do not wait 20 seconds after a failed attempt. This lets
-                -- Auto TNT notice newly purchased TNT without re-toggling.
                 if didAttempt then
                     task.wait(5)
                 else
@@ -1469,38 +2628,83 @@ task.spawn(function()
     end
 end)
 
-makeToggleWithSub(combatCard, "Auto TNT", "(keeps checking after TNT is bought)", 90, function(on)
-    autoTNT = on
-    if not on then
-        tntBusy = false
-        resetTntState()
-    end
-end)
+makeToggleWithSub(
+    combatCard,
+    "Auto TNT",
+    "(keeps checking after TNT is bought)",
+    90,
+    function(on)
+        autoTNT = on
 
--- 5. Auto Collect Hay (3 Tools in 1)
+        if not on then
+            tntBusy = false
+            resetTntState()
+        end
+    end
+)
+
+-- 5. Auto Collect Hay
 local lastPitchfork = 0
 
 local function getLookHay()
     refreshHayTools()
-    if not hayFolder then return {} end
+
+    if not hayFolder then
+        return {}
+    end
+
     local camera = workspace.CurrentCamera
+
     local origin = camera.CFrame.Position
     local direction = camera.CFrame.LookVector
+
     local candidates = {}
 
-    for _, hay in ipairs(hayFolder:GetChildren()) do
+    for _, hay in ipairs(
+        hayFolder:GetChildren()
+    ) do
+
         if hay.Name == "HayPiece" then
-            local id = hay:GetAttribute("HayId")
-            local pos = getHayPosition(hay)
+            local id =
+                hay:GetAttribute("HayId")
+
+            local pos =
+                getHayPosition(hay)
+
             if id and pos then
                 local offset = pos - origin
                 local distance = offset.Magnitude
-                if distance > 0 and distance <= 20 then
-                    local dot = direction:Dot(offset.Unit)
+
+                if distance > 0
+                    and distance <= 20 then
+
+                    local dot =
+                        direction:Dot(
+                            offset.Unit
+                        )
+
                     if dot > 0 then
-                        local angle = math.deg(math.acos(math.clamp(dot, -1, 1)))
+                        local angle =
+                            math.deg(
+                                math.acos(
+                                    math.clamp(
+                                        dot,
+                                        -1,
+                                        1
+                                    )
+                                )
+                            )
+
                         if angle <= 35 then
-                            table.insert(candidates, { id = id, distance = distance, angle = angle, position = pos })
+                            table.insert(
+                                candidates,
+                                {
+                                    id = id,
+                                    distance = distance,
+                                    angle = angle,
+                                    position = pos
+                                }
+                            )
                         end
                     end
                 end
@@ -1508,15 +2712,27 @@ local function getLookHay()
         end
     end
 
-    table.sort(candidates, function(a, b)
-        if math.abs(a.angle - b.angle) < 5 then return a.distance < b.distance end
-        return a.angle < b.angle
-    end)
+    table.sort(
+        candidates,
+        function(a, b)
+            if math.abs(
+                a.angle - b.angle
+            ) < 5 then
+
+                return a.distance
+                    < b.distance
+            end
+
+            return a.angle < b.angle
+        end
+    )
+
     return candidates
 end
 
 restartHayVacuum = function()
     refreshHayTools()
+
     if not VacuumAction then
         vacuumStarted = false
         return false
@@ -1526,6 +2742,7 @@ restartHayVacuum = function()
         pcall(function()
             VacuumAction:FireServer("Stop")
         end)
+
         vacuumStarted = false
         task.wait(0.05)
     end
@@ -1533,8 +2750,10 @@ restartHayVacuum = function()
     pcall(function()
         VacuumAction:FireServer("Start")
     end)
+
     vacuumStarted = true
     lastVacuumRefresh = os.clock()
+
     return true
 end
 
@@ -1543,69 +2762,112 @@ task.spawn(function()
         if autoCollectHay then
             refreshHayTools()
 
-            -- If selling, let the sell routine handle the vacuum restart after
-            -- the player returns. This prevents competing Stop/Start calls.
             if not isSellingHay then
-                if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then
+                if not PickHay
+                    or not PitchforkDig
+                    or not VacuumAction
+                    or not hayFolder then
+
                     task.wait(0.5)
                     continue
                 end
 
-                -- The vacuum can silently stop on the server after a teleport
-                -- or after a tool state changes. Re-start it automatically.
                 if not vacuumStarted then
                     restartHayVacuum()
                 end
 
-                local candidates = getLookHay()
+                local candidates =
+                    getLookHay()
+
                 if #candidates > 0 then
-                    -- If the player left the hay area and later comes back,
-                    -- refresh the server-side vacuum session. The old session
-                    -- can remain true locally while no longer being active.
                     local now = os.clock()
-                    if lastHaySeen > 0 and (now - lastHaySeen) >= 0.8 then
+
+                    if lastHaySeen > 0
+                        and now - lastHaySeen >= 0.8 then
+
                         restartHayVacuum()
                     end
+
                     lastHaySeen = now
 
-                    -- Also refresh periodically so a silent server-side
-                    -- vacuum timeout cannot permanently kill Auto Collect.
-                    if (now - lastVacuumRefresh) >= 8 then
+                    if now - lastVacuumRefresh >= 8 then
                         restartHayVacuum()
                         lastVacuumRefresh = now
                     end
 
-                    local pickIds, vacuumIds = {}, {}
-                    for i = 1, math.min(#candidates, 12) do
-                        table.insert(pickIds, candidates[i].id)
-                    end
-                    for i = 1, math.min(#candidates, 8) do
-                        table.insert(vacuumIds, candidates[i].id)
+                    local pickIds = {}
+                    local vacuumIds = {}
+
+                    for i = 1,
+                        math.min(
+                            #candidates,
+                            12
+                        ) do
+
+                        table.insert(
+                            pickIds,
+                            candidates[i].id
+                        )
                     end
 
-                    local primaryId = pickIds[1]
+                    for i = 1,
+                        math.min(
+                            #candidates,
+                            8
+                        ) do
+
+                        table.insert(
+                            vacuumIds,
+                            candidates[i].id
+                        )
+                    end
+
+                    local primaryId =
+                        pickIds[1]
+
                     local additionalIds = {}
-                    for i = 2, #pickIds do
-                        table.insert(additionalIds, pickIds[i])
+
+                    for i = 2,
+                        #pickIds do
+
+                        table.insert(
+                            additionalIds,
+                            pickIds[i]
+                        )
                     end
 
-                    -- Tool 1: Pick Hay
                     pcall(function()
-                        PickHay:FireServer(primaryId, additionalIds)
+                        PickHay:FireServer(
+                            primaryId,
+                            additionalIds
+                        )
                     end)
 
-                    -- Tool 2: Pitchfork
-                    if os.clock() - lastPitchfork >= 0.85 then
+                    if os.clock()
+                        - lastPitchfork
+                        >= 0.85 then
+
                         lastPitchfork = os.clock()
+
                         pcall(function()
-                            PitchforkDig:FireServer(primaryId)
+                            PitchforkDig:FireServer(
+                                primaryId
+                            )
                         end)
                     end
 
-                    -- Tool 3: Vacuum
-                    if vacuumStarted and #vacuumIds > 0 then
-                        local character = player.Character
-                        local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+                    if vacuumStarted
+                        and #vacuumIds > 0 then
+
+                        local character =
+                            player.Character
+
+                        local playerRoot =
+                            character
+                            and character:FindFirstChild(
+                                "HumanoidRootPart"
+                            )
+
                         if playerRoot then
                             pcall(function()
                                 VacuumAction:FireServer(
@@ -1627,154 +2889,705 @@ task.spawn(function()
     end
 end)
 
-makeToggleWithSub(combatCard, "Auto Collect Hay", "(use all 3 tools)", 132, function(on)
-    autoCollectHay = on
-    if on then
-        refreshHayTools()
-        -- Start asynchronously through the same recovery function used after
-        -- selling, so the option can stay enabled even while tools load.
-        restartHayVacuum()
-    else
-        if vacuumStarted and VacuumAction then
-            pcall(function()
-                VacuumAction:FireServer("Stop")
-            end)
-        end
-        vacuumStarted = false
-        lastHaySeen = 0
-    end
-end)
+makeToggleWithSub(
+    combatCard,
+    "Auto Collect Hay",
+    "(use all 3 tools)",
+    132,
+    function(on)
+        autoCollectHay = on
 
--- 6. Auto Sell Hay
-makeToggleWithSub(combatCard, "Auto Sell Hay", "(sell when capacity is full)", 174, function(on)
-    autoSellHay = on
+        if on then
+            refreshHayTools()
+            restartHayVacuum()
+        else
+            if vacuumStarted
+                and VacuumAction then
+
+                pcall(function()
+                    VacuumAction:FireServer("Stop")
+                end)
+            end
+
+            vacuumStarted = false
+            lastHaySeen = 0
+        end
+    end
+)
+
+-- 6. Auto Sell Hay Toggle
+makeToggleWithSub(
+    combatCard,
+    "Auto Sell Hay",
+    "(sell when capacity is full)",
+    174,
+    function(on)
+        autoSellHay = on
+    end
+)
+
+-- ==========================================================
+-- 7. RANDOM TP TO HAY
+-- ==========================================================
+local autoTPHay = false
+
+-- Maximum distance from the player to consider a HayPiece
+local tpHayDistance = 50
+
+-- Height above the selected HayPiece
+local tpHayYLevel = 4
+
+-- Remember the previous target so we don't immediately
+-- teleport to the exact same HayPiece repeatedly.
+local lastTPHayTarget = nil
+
+local function getRandomHayTarget()
+    local hayFolder =
+        workspace:FindFirstChild(
+            "HaystackClient"
+        )
+
+    if not hayFolder then
+        return nil
+    end
+
+    local char = player.Character
+
+    local root =
+        char
+        and char:FindFirstChild(
+            "HumanoidRootPart"
+        )
+
+    if not root then
+        return nil
+    end
+
+    local candidates = {}
+
+    for _, hay in ipairs(
+        hayFolder:GetChildren()
+    ) do
+
+        if hay.Name == "HayPiece" then
+            local pos = nil
+
+            if hay:IsA("BasePart") then
+                pos = hay.Position
+
+            elseif hay:IsA("Model") then
+                local part =
+                    hay.PrimaryPart
+                    or hay:FindFirstChildWhichIsA(
+                        "BasePart"
+                    )
+
+                if part then
+                    pos = part.Position
+                end
+            end
+
+            if pos then
+                local distance =
+                    (pos - root.Position).Magnitude
+
+                if distance <= tpHayDistance then
+                    table.insert(
+                        candidates,
+                        {
+                            object = hay,
+                            position = pos,
+                            distance = distance
+                        }
+                    )
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return nil
+    end
+
+    -- Remove the previous target when possible.
+    if #candidates > 1
+        and lastTPHayTarget then
+
+        local filtered = {}
+
+        for _, candidate in ipairs(
+            candidates
+        ) do
+            if candidate.object
+                ~= lastTPHayTarget then
+
+                table.insert(
+                    filtered,
+                    candidate
+                )
+            end
+        end
+
+        if #filtered > 0 then
+            candidates = filtered
+        end
+    end
+
+    local chosen =
+        candidates[
+            math.random(
+                1,
+                #candidates
+            )
+        ]
+
+    lastTPHayTarget = chosen.object
+
+    return chosen
+end
+
+makeToggleWithSub(
+    combatCard,
+    "Random TP to Hay",
+    "random hay target within selected distance",
+    216,
+    function(on)
+        autoTPHay = on
+
+        if not on then
+            lastTPHayTarget = nil
+        end
+    end
+)
+
+-- Target Distance slider
+makeSlider(
+    combatCard,
+    "Target Distance",
+    258,
+    10,
+    150,
+    50,
+    function(v)
+        tpHayDistance = v
+    end
+)
+
+-- Y Level slider
+makeSlider(
+    combatCard,
+    "Y Level",
+    318,
+    0,
+    30,
+    4,
+    function(v)
+        tpHayYLevel = v
+    end
+)
+
+-- Make the Main Farm scrolling area tall enough
+-- for the new sliders.
+combatCard.CanvasSize =
+    UDim2.fromOffset(0, 390)
+
+task.spawn(function()
+    while gui and gui.Parent do
+        if autoTPHay then
+            pcall(function()
+                local target =
+                    getRandomHayTarget()
+
+                if target
+                    and target.position then
+
+                    local char =
+                        player.Character
+
+                    local root =
+                        char
+                        and char:FindFirstChild(
+                            "HumanoidRootPart"
+                        )
+
+                    if root then
+                        root.CFrame =
+                            CFrame.new(
+                                target.position
+                                + Vector3.new(
+                                    0,
+                                    tpHayYLevel,
+                                    0
+                                )
+                            )
+                    end
+                end
+            end)
+
+            task.wait(0.5)
+        else
+            task.wait(0.5)
+        end
+    end
 end)
 
 player.CharacterAdded:Connect(function(char)
     refreshNeedleCharacter(char)
+
     task.wait(0.5)
 
     if needleAuto then
         startAutoNeedleLoop()
     end
 
-    -- Re-acquire place-specific hay remotes after respawn and restart the
-    -- vacuum if Auto Collect Hay was left enabled.
     if autoCollectHay then
         refreshHayTools()
+
         if restartHayVacuum then
             restartHayVacuum()
         end
     end
 end)
 
-LoadingScreen.SetProgress(35, "Main Farm buttons loaded")
+LoadingScreen.SetProgress(
+    35,
+    "Main Farm buttons loaded"
+)
 
 -- ===== Visuals: Needle ESP =====
-local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle ESP, shop and upgrades.")
-local needleHighlight
+local visualsPage, visualsCard = makePage(
+    "Visuals",
+    "Visuals",
+    "Needle ESP, shop and upgrades."
+)
+
 local needleESP = false
+local removeNeedleHighlight
 
-local function removeNeedleHighlight()
-    if needleHighlight then needleHighlight:Destroy(); needleHighlight = nil end
-end
+do
+    local espGui = Instance.new("ScreenGui")
+    espGui.Name = "KiwinNeedleESP"
+    espGui.ResetOnSpawn = false
+    espGui.IgnoreGuiInset = true
+    espGui.DisplayOrder = 5
+    espGui.Parent = playerGui
 
-local function applyNeedleHighlight()
-    removeNeedleHighlight()
-    if not needleESP then return end
-    local n = getNeedle()
-    if not n then return end
-    local h = Instance.new("Highlight")
-    h.Name = "NeedleESP"
-    h.Adornee = n
-    h.FillColor = Color3.fromRGB(255, 0, 0)
-    h.OutlineColor = Color3.fromRGB(255, 255, 255)
-    h.FillTransparency = 0.3
-    h.OutlineTransparency = 0
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = n
-    needleHighlight = h
-end
+    local tracker = Instance.new("Frame")
+    tracker.Name = "NeedleTracker"
+    tracker.Size = UDim2.fromOffset(150, 55)
+    tracker.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracker.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    tracker.BackgroundTransparency = 0.15
+    tracker.BorderSizePixel = 0
+    tracker.Visible = false
+    tracker.Parent = espGui
 
-makeToggle(visualsCard, "Needle ESP", 1, function(on)
-    needleESP = on
-    if on then applyNeedleHighlight() else removeNeedleHighlight() end
-end)
+    local trackerCorner = Instance.new("UICorner")
+    trackerCorner.CornerRadius = UDim.new(0, 8)
+    trackerCorner.Parent = tracker
 
-label(visualsCard, "Highlights Workspace.Main.Needle in red.", 12, GRAY, UDim2.fromOffset(16, 52), UDim2.new(1, -32, 0, 30), Enum.Font.Gotham)
+    local trackerName = Instance.new("TextLabel")
+    trackerName.Size = UDim2.new(1, 0, 0, 27)
+    trackerName.Position = UDim2.fromOffset(0, 2)
+    trackerName.BackgroundTransparency = 1
+    trackerName.Text = "NEEDLE"
+    trackerName.TextColor3 = Color3.fromRGB(255, 80, 80)
+    trackerName.TextSize = 16
+    trackerName.Font = Enum.Font.GothamBold
+    trackerName.Parent = tracker
 
-task.spawn(function()
-    while gui.Parent do
-        if needleESP and not needleHighlight then applyNeedleHighlight() end
-        if not getNeedle() and needleHighlight then removeNeedleHighlight() end
-        task.wait(1)
+    local trackerDist = Instance.new("TextLabel")
+    trackerDist.Size = UDim2.new(1, 0, 0, 20)
+    trackerDist.Position = UDim2.fromOffset(0, 29)
+    trackerDist.BackgroundTransparency = 1
+    trackerDist.Text = "0 studs"
+    trackerDist.TextColor3 = Color3.fromRGB(255, 255, 255)
+    trackerDist.TextSize = 13
+    trackerDist.Font = Enum.Font.Gotham
+    trackerDist.Parent = tracker
+
+    local arrow = Instance.new("TextLabel")
+    arrow.Name = "NeedleArrow"
+    arrow.Size = UDim2.fromOffset(50, 50)
+    arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+    arrow.BackgroundTransparency = 1
+    arrow.Text = "▲"
+    arrow.TextColor3 = Color3.fromRGB(255, 60, 60)
+    arrow.TextSize = 35
+    arrow.Font = Enum.Font.GothamBold
+    arrow.Visible = false
+    arrow.Parent = espGui
+
+    local currentNeedle
+    local currentHighlight
+    local renderConn
+
+    local function hideUI()
+        tracker.Visible = false
+        arrow.Visible = false
     end
-end)
 
+    local function clearHighlight()
+        currentNeedle = nil
 
--- ===== Visuals: Upgrades & Shop (click button + auto-buy toggle) =====
-local NeedleRemotes = ReplicatedStorage:WaitForChild("NeedleHaystack", 5)
-local BuyUpgradeRemote = NeedleRemotes and NeedleRemotes:WaitForChild("BuyUpgrade", 5)
-local BuyShopRemote = NeedleRemotes and NeedleRemotes:WaitForChild("BuyShopItem", 5)
+        if currentHighlight then
+            pcall(function()
+                currentHighlight:Destroy()
+            end)
 
-local AUTO_DELAY = 0.3 -- seconds between auto-buy attempts
+            currentHighlight = nil
+        end
 
+        hideUI()
+    end
+
+    local function setNeedle(n)
+        if n == currentNeedle then
+            return
+        end
+
+        clearHighlight()
+
+        if not n then
+            return
+        end
+
+        currentNeedle = n
+
+        local h = Instance.new("Highlight")
+        h.Name = "NeedleESP"
+        h.Adornee = n
+        h.FillColor = Color3.fromRGB(255, 0, 0)
+        h.OutlineColor = Color3.fromRGB(255, 255, 255)
+        h.FillTransparency = 0.3
+        h.OutlineTransparency = 0
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = espGui
+
+        currentHighlight = h
+    end
+
+    local function updateTracker()
+        local needle = currentNeedle
+        local cam = workspace.CurrentCamera
+
+        if not needle or not needle.Parent or not cam then
+            hideUI()
+            return
+        end
+
+        local char = player.Character
+        local root = char
+            and char:FindFirstChild("HumanoidRootPart")
+        local pos = getNeedlePosition(needle)
+
+        if not root or not pos then
+            hideUI()
+            return
+        end
+
+        local dist = (root.Position - pos).Magnitude
+        trackerDist.Text = math.floor(dist + 0.5) .. " studs"
+
+        local sp, onScreen = cam:WorldToViewportPoint(pos)
+        local vp = cam.ViewportSize
+
+        if onScreen
+            and sp.Z > 0
+            and sp.X >= 0 and sp.X <= vp.X
+            and sp.Y >= 0 and sp.Y <= vp.Y then
+
+            tracker.Visible = true
+            arrow.Visible = false
+            tracker.Position = UDim2.fromOffset(sp.X, sp.Y)
+        else
+            tracker.Visible = false
+            arrow.Visible = true
+
+            local center = Vector2.new(vp.X / 2, vp.Y / 2)
+            local target = Vector2.new(sp.X, sp.Y)
+
+            if sp.Z < 0 then
+                target = center - (target - center)
+            end
+
+            local dir = target - center
+
+            if dir.Magnitude < 1 then
+                dir = Vector2.new(0, -1)
+            else
+                dir = dir.Unit
+            end
+
+            local margin = 45
+            local halfX = (vp.X / 2) - margin
+            local halfY = (vp.Y / 2) - margin
+            local scaleX = halfX / math.max(math.abs(dir.X), 0.001)
+            local scaleY = halfY / math.max(math.abs(dir.Y), 0.001)
+            local arrowPos = center + dir * math.min(scaleX, scaleY)
+
+            arrow.Position = UDim2.fromOffset(arrowPos.X, arrowPos.Y)
+            arrow.Rotation =
+                math.deg(math.atan2(dir.Y, dir.X)) + 90
+        end
+    end
+
+    local function enable()
+        if renderConn then
+            return
+        end
+
+        renderConn = RunService.RenderStepped:Connect(updateTracker)
+        setNeedle(getNeedle())
+    end
+
+    local function disable()
+        if renderConn then
+            renderConn:Disconnect()
+            renderConn = nil
+        end
+
+        clearHighlight()
+    end
+
+    removeNeedleHighlight = function()
+        needleESP = false
+        disable()
+        espGui:Destroy()
+    end
+
+    makeToggle(
+        visualsCard,
+        "Needle ESP",
+        1,
+        function(on)
+            needleESP = on
+
+            if on then
+                enable()
+            else
+                disable()
+            end
+        end
+    )
+
+    label(
+        visualsCard,
+        "Highlight, distance and off-screen arrow for the Needle.",
+        12,
+        GRAY,
+        UDim2.fromOffset(16, 52),
+        UDim2.new(1, -32, 0, 30),
+        Enum.Font.Gotham
+    )
+
+    -- Detects Needle spawning / despawning
+    task.spawn(function()
+        while gui.Parent do
+            if needleESP then
+                setNeedle(getNeedle())
+            end
+
+            task.wait(0.5)
+        end
+    end)
+end
+
+-- ===== Visuals: Upgrades & Shop =====
+local NeedleRemotes =
+    ReplicatedStorage:WaitForChild(
+        "NeedleHaystack",
+        5
+    )
+
+local BuyUpgradeRemote =
+    NeedleRemotes
+    and NeedleRemotes:WaitForChild(
+        "BuyUpgrade",
+        5
+    )
+
+local BuyShopRemote =
+    NeedleRemotes
+    and NeedleRemotes:WaitForChild(
+        "BuyShopItem",
+        5
+    )
+
+local AUTO_DELAY = 0.3
+
+-- ==========================================================
+-- UPGRADE GROUPS
+-- BAG UPDATES ADDED HERE
+-- ==========================================================
 local upgradeGroups = {
-    { name = "Vacuum Updates", items = {
-        {"Vacuum Runtime", "VacuumRuntime"},
-        {"Vacuum Cooling", "VacuumCooling"},
-        {"Vacuum Power", "VacuumPower"},
-    }},
-    { name = "Drone Updates", items = {
-        {"Drone Capacity", "DroneCapacity"},
-        {"Drone Speed", "DroneSpeed"},
-        {"Drone Grab", "DroneGrab"},
-    }},
-    { name = "Pitchfork Updates", items = {
-        {"Pitchfork", "Pitchfork"},
-        {"Pitchfork Cooldown", "PitchforkCooldown"},
-        {"Pitchfork Hold", "PitchforkHold"},
-    }},
-    { name = "TNT Updates", items = {
-        {"TNT Power", "TntPower"},
-        {"TNT Cooldown", "TntCooldown"},
-        {"TNT Luck", "TntLuck"},
-    }},
-    { name = "Hand Updates", items = {
-        {"Speed", "Speed"},
-        {"Grab", "Grab"},
-        {"Hand Hold", "HandHold"},
-    }},
+    {
+        name = "Vacuum Updates",
+        items = {
+            {
+                "Vacuum Runtime",
+                "VacuumRuntime"
+            },
+            {
+                "Vacuum Cooling",
+                "VacuumCooling"
+            },
+            {
+                "Vacuum Power",
+                "VacuumPower"
+            },
+        }
+    },
+
+    -- NEW BAG UPDATES
+    {
+        name = "Bag Updates",
+        items = {
+            {
+                "Bag Capacity",
+                "Capacity"
+            },
+        }
+    },
+
+    {
+        name = "Drone Updates",
+        items = {
+            {
+                "Drone Capacity",
+                "DroneCapacity"
+            },
+            {
+                "Drone Speed",
+                "DroneSpeed"
+            },
+            {
+                "Drone Grab",
+                "DroneGrab"
+            },
+        }
+    },
+
+    {
+        name = "Pitchfork Updates",
+        items = {
+            {
+                "Pitchfork",
+                "Pitchfork"
+            },
+            {
+                "Pitchfork Cooldown",
+                "PitchforkCooldown"
+            },
+            {
+                "Pitchfork Hold",
+                "PitchforkHold"
+            },
+        }
+    },
+
+    {
+        name = "TNT Updates",
+        items = {
+            {
+                "TNT Power",
+                "TntPower"
+            },
+            {
+                "TNT Cooldown",
+                "TntCooldown"
+            },
+            {
+                "TNT Luck",
+                "TntLuck"
+            },
+        }
+    },
+
+    {
+        name = "Hand Updates",
+        items = {
+            {
+                "Speed",
+                "Speed"
+            },
+            {
+                "Grab",
+                "Grab"
+            },
+            {
+                "Hand Hold",
+                "HandHold"
+            },
+        }
+    },
 }
 
 local shopItems = {
-    {"Vacuum", "Vacuum"},
-    {"TNT", "Tnt"},
-    {"Pitchfork", "Pitchfork"},
+    {
+        "Vacuum",
+        "Vacuum"
+    },
+    {
+        "TNT",
+        "Tnt"
+    },
+    {
+        "Pitchfork",
+        "Pitchfork"
+    },
 }
 
 local autoEntries = {}
 
 local function fireBuy(remote, id)
-    if not remote then return false end
-    local ok, err = pcall(function() remote:FireServer(id) end)
-    if not ok then warn("Buy failed:", id, err) end
+    if not remote then
+        return false
+    end
+
+    local ok, err = pcall(function()
+        remote:FireServer(id)
+    end)
+
+    if not ok then
+        warn(
+            "Buy failed:",
+            id,
+            err
+        )
+    end
+
     return ok
 end
 
-local function makeBuyRow(parent, order, displayName, remote, id, buyText)
+local function makeBuyRow(
+    parent,
+    order,
+    displayName,
+    remote,
+    id,
+    buyText
+)
     local row = Instance.new("Frame")
     row.BackgroundColor3 = BG
     row.BorderSizePixel = 0
     row.Size = UDim2.new(1, 0, 0, 38)
     row.LayoutOrder = order
     row.Parent = parent
+
     corner(row, 8)
     stroke(row, LINE, 1)
 
-    label(row, displayName, 14, WHITE, UDim2.fromOffset(12, 0), UDim2.new(1, -150, 1, 0), Enum.Font.Gotham)
+    label(
+        row,
+        displayName,
+        14,
+        WHITE,
+        UDim2.fromOffset(12, 0),
+        UDim2.new(1, -150, 1, 0),
+        Enum.Font.Gotham
+    )
 
-    -- Click button
     local buy = Instance.new("TextButton")
     buy.AutoButtonColor = false
     buy.BackgroundColor3 = RED_DARK
@@ -1784,29 +3597,60 @@ local function makeBuyRow(parent, order, displayName, remote, id, buyText)
     buy.TextSize = 13
     buy.TextColor3 = WHITE
     buy.AnchorPoint = Vector2.new(1, 0.5)
-    buy.Position = UDim2.new(1, -68, 0.5, 0)
+    buy.Position = UDim2.new(
+        1,
+        -68,
+        0.5,
+        0
+    )
     buy.Size = UDim2.fromOffset(72, 26)
     buy.Parent = row
+
     corner(buy, 6)
 
     buy.MouseButton1Click:Connect(function()
-        local ok = fireBuy(remote, id)
-        buy.BackgroundColor3 = ok and Color3.fromRGB(45, 145, 75) or Color3.fromRGB(160, 45, 45)
+        local ok =
+            fireBuy(
+                remote,
+                id
+            )
+
+        buy.BackgroundColor3 =
+            ok
+            and Color3.fromRGB(
+                45,
+                145,
+                75
+            )
+            or Color3.fromRGB(
+                160,
+                45,
+                45
+            )
+
         task.delay(0.3, function()
-            if buy and buy.Parent then buy.BackgroundColor3 = RED_DARK end
+            if buy and buy.Parent then
+                buy.BackgroundColor3 =
+                    RED_DARK
+            end
         end)
     end)
 
-    -- Auto-buy toggle
     local bg = Instance.new("TextButton")
     bg.AutoButtonColor = false
     bg.Text = ""
     bg.BackgroundColor3 = OFF
     bg.BorderSizePixel = 0
     bg.AnchorPoint = Vector2.new(1, 0.5)
-    bg.Position = UDim2.new(1, -10, 0.5, 0)
+    bg.Position = UDim2.new(
+        1,
+        -10,
+        0.5,
+        0
+    )
     bg.Size = UDim2.fromOffset(48, 22)
     bg.Parent = row
+
     corner(bg, 11)
 
     local knob = Instance.new("Frame")
@@ -1815,23 +3659,70 @@ local function makeBuyRow(parent, order, displayName, remote, id, buyText)
     knob.Position = UDim2.fromOffset(3, 3)
     knob.Size = UDim2.fromOffset(16, 16)
     knob.Parent = bg
+
     corner(knob, 8)
 
-    local entry = { remote = remote, id = id, enabled = false }
-    table.insert(autoEntries, entry)
+    local entry = {
+        remote = remote,
+        id = id,
+        enabled = false
+    }
+
+    table.insert(
+        autoEntries,
+        entry
+    )
 
     bg.MouseButton1Click:Connect(function()
-        entry.enabled = not entry.enabled
-        local info = TweenInfo.new(0.15)
-        TweenService:Create(bg, info, {BackgroundColor3 = entry.enabled and RED or OFF}):Play()
-        TweenService:Create(knob, info, {
-            Position = entry.enabled and UDim2.fromOffset(29, 3) or UDim2.fromOffset(3, 3),
-            BackgroundColor3 = entry.enabled and WHITE or GRAY,
-        }):Play()
+        entry.enabled =
+            not entry.enabled
+
+        local info =
+            TweenInfo.new(0.15)
+
+        TweenService:Create(
+            bg,
+            info,
+            {
+                BackgroundColor3 =
+                    entry.enabled
+                    and RED
+                    or OFF
+            }
+        ):Play()
+
+        TweenService:Create(
+            knob,
+            info,
+            {
+                Position =
+                    entry.enabled
+                    and UDim2.fromOffset(
+                        29,
+                        3
+                    )
+                    or UDim2.fromOffset(
+                        3,
+                        3
+                    ),
+
+                BackgroundColor3 =
+                    entry.enabled
+                    and WHITE
+                    or GRAY
+            }
+        ):Play()
     end)
 end
 
-local function makeCollapsibleGroup(parent, order, name, items, remote, buyText)
+local function makeCollapsibleGroup(
+    parent,
+    order,
+    name,
+    items,
+    remote,
+    buyText
+)
     local container = Instance.new("Frame")
     container.BackgroundTransparency = 1
     container.BorderSizePixel = 0
@@ -1840,12 +3731,20 @@ local function makeCollapsibleGroup(parent, order, name, items, remote, buyText)
     container.LayoutOrder = order
     container.Parent = parent
 
-    local list = Instance.new("UIListLayout")
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    list.Padding = UDim.new(0, 4)
+    local list =
+        Instance.new("UIListLayout")
+
+    list.SortOrder =
+        Enum.SortOrder.LayoutOrder
+
+    list.Padding =
+        UDim.new(0, 4)
+
     list.Parent = container
 
-    local header = Instance.new("TextButton")
+    local header =
+        Instance.new("TextButton")
+
     header.AutoButtonColor = false
     header.BackgroundColor3 = OFF
     header.BorderSizePixel = 0
@@ -1853,197 +3752,523 @@ local function makeCollapsibleGroup(parent, order, name, items, remote, buyText)
     header.Size = UDim2.new(1, 0, 0, 36)
     header.LayoutOrder = 1
     header.Parent = container
+
     corner(header, 8)
 
-    label(header, name, 14, WHITE, UDim2.fromOffset(14, 0), UDim2.new(1, -60, 1, 0), Enum.Font.GothamBold)
-    local arrow = label(header, ">", 18, GRAY, UDim2.new(1, -36, 0, 0), UDim2.fromOffset(28, 36), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+    label(
+        header,
+        name,
+        14,
+        WHITE,
+        UDim2.fromOffset(14, 0),
+        UDim2.new(1, -60, 1, 0),
+        Enum.Font.GothamBold
+    )
 
-    local itemsFrame = Instance.new("Frame")
+    local arrow = label(
+        header,
+        ">",
+        18,
+        GRAY,
+        UDim2.new(1, -36, 0, 0),
+        UDim2.fromOffset(28, 36),
+        Enum.Font.GothamBold,
+        Enum.TextXAlignment.Center
+    )
+
+    local itemsFrame =
+        Instance.new("Frame")
+
     itemsFrame.BackgroundTransparency = 1
     itemsFrame.BorderSizePixel = 0
-    itemsFrame.Size = UDim2.new(1, 0, 0, 0)
-    itemsFrame.AutomaticSize = Enum.AutomaticSize.Y
+    itemsFrame.Size =
+        UDim2.new(1, 0, 0, 0)
+
+    itemsFrame.AutomaticSize =
+        Enum.AutomaticSize.Y
+
     itemsFrame.Visible = false
     itemsFrame.LayoutOrder = 2
     itemsFrame.Parent = container
 
-    local itemsList = Instance.new("UIListLayout")
-    itemsList.SortOrder = Enum.SortOrder.LayoutOrder
-    itemsList.Padding = UDim.new(0, 4)
+    local itemsList =
+        Instance.new("UIListLayout")
+
+    itemsList.SortOrder =
+        Enum.SortOrder.LayoutOrder
+
+    itemsList.Padding =
+        UDim.new(0, 4)
+
     itemsList.Parent = itemsFrame
 
-    local itemsPad = Instance.new("UIPadding")
-    itemsPad.PaddingLeft = UDim.new(0, 10)
+    local itemsPad =
+        Instance.new("UIPadding")
+
+    itemsPad.PaddingLeft =
+        UDim.new(0, 10)
+
     itemsPad.Parent = itemsFrame
 
     for i, item in ipairs(items) do
-        makeBuyRow(itemsFrame, i, item[1], remote, item[2], buyText)
+        makeBuyRow(
+            itemsFrame,
+            i,
+            item[1],
+            remote,
+            item[2],
+            buyText
+        )
     end
 
     header.MouseButton1Click:Connect(function()
-        itemsFrame.Visible = not itemsFrame.Visible
-        arrow.Text = itemsFrame.Visible and "v" or ">"
+        itemsFrame.Visible =
+            not itemsFrame.Visible
+
+        arrow.Text =
+            itemsFrame.Visible
+            and "v"
+            or ">"
     end)
 end
 
-local function makeSectionLabel(parent, order, text)
-    local l = label(parent, text, 12, GRAY, UDim2.new(), UDim2.new(1, 0, 0, 18), Enum.Font.GothamBold)
+local function makeSectionLabel(
+    parent,
+    order,
+    text
+)
+    local l = label(
+        parent,
+        text,
+        12,
+        GRAY,
+        UDim2.new(),
+        UDim2.new(1, 0, 0, 18),
+        Enum.Font.GothamBold
+    )
+
     l.LayoutOrder = order
+
     return l
 end
 
--- Auto scroll size for the Visuals page (so the groups can scroll)
-visualsCard.CanvasSize = UDim2.new(0, 0, 0, 0)
-visualsCard.AutomaticCanvasSize = Enum.AutomaticSize.Y
+visualsCard.CanvasSize =
+    UDim2.new(0, 0, 0, 0)
 
-local upgradeRoot = Instance.new("Frame")
+visualsCard.AutomaticCanvasSize =
+    Enum.AutomaticSize.Y
+
+local upgradeRoot =
+    Instance.new("Frame")
+
 upgradeRoot.BackgroundTransparency = 1
 upgradeRoot.BorderSizePixel = 0
-upgradeRoot.Position = UDim2.fromOffset(12, 92)
-upgradeRoot.Size = UDim2.new(1, -28, 0, 0)
-upgradeRoot.AutomaticSize = Enum.AutomaticSize.Y
+upgradeRoot.Position =
+    UDim2.fromOffset(12, 92)
+
+upgradeRoot.Size =
+    UDim2.new(1, -28, 0, 0)
+
+upgradeRoot.AutomaticSize =
+    Enum.AutomaticSize.Y
+
 upgradeRoot.Parent = visualsCard
 
-local rootList = Instance.new("UIListLayout")
-rootList.SortOrder = Enum.SortOrder.LayoutOrder
-rootList.Padding = UDim.new(0, 6)
+local rootList =
+    Instance.new("UIListLayout")
+
+rootList.SortOrder =
+    Enum.SortOrder.LayoutOrder
+
+rootList.Padding =
+    UDim.new(0, 6)
+
 rootList.Parent = upgradeRoot
 
-local rootPad = Instance.new("UIPadding")
-rootPad.PaddingBottom = UDim.new(0, 14)
+local rootPad =
+    Instance.new("UIPadding")
+
+rootPad.PaddingBottom =
+    UDim.new(0, 14)
+
 rootPad.Parent = upgradeRoot
 
-makeSectionLabel(upgradeRoot, 1, "SHOP   (button = buy once  |  toggle = auto buy)")
-makeCollapsibleGroup(upgradeRoot, 2, "Shop Items", shopItems, BuyShopRemote, "Buy")
+makeSectionLabel(
+    upgradeRoot,
+    1,
+    "SHOP   (button = buy once  |  toggle = auto buy)"
+)
 
-makeSectionLabel(upgradeRoot, 3, "UPGRADES   (button = upgrade  |  toggle = auto upgrade)")
+makeCollapsibleGroup(
+    upgradeRoot,
+    2,
+    "Shop Items",
+    shopItems,
+    BuyShopRemote,
+    "Buy"
+)
+
+makeSectionLabel(
+    upgradeRoot,
+    3,
+    "UPGRADES   (button = upgrade  |  toggle = auto upgrade)"
+)
+
 for i, group in ipairs(upgradeGroups) do
-    makeCollapsibleGroup(upgradeRoot, 3 + i, group.name, group.items, BuyUpgradeRemote, "Upgrade")
+    makeCollapsibleGroup(
+        upgradeRoot,
+        3 + i,
+        group.name,
+        group.items,
+        BuyUpgradeRemote,
+        "Upgrade"
+    )
 end
 
--- Auto-buy loop: tries each toggled item in turn; the server only accepts it when you can afford it.
 task.spawn(function()
     while gui.Parent do
         local fired = false
+
         for _, entry in ipairs(autoEntries) do
-            if not gui.Parent then break end
+            if not gui.Parent then
+                break
+            end
+
             if entry.enabled then
-                fireBuy(entry.remote, entry.id)
+                fireBuy(
+                    entry.remote,
+                    entry.id
+                )
+
                 fired = true
-                task.wait(AUTO_DELAY)
+
+                task.wait(
+                    AUTO_DELAY
+                )
             end
         end
-        if not fired then task.wait(0.5) end
+
+        if not fired then
+            task.wait(0.5)
+        end
     end
 end)
 
-LoadingScreen.SetProgress(60, "Visuals button loaded")
+LoadingScreen.SetProgress(
+    60,
+    "Visuals button loaded"
+)
 
 -- ===== Player page =====
-local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
-local walkSpeed, jumpPower = 16, 50
+local playerPage, playerCard =
+    makePage(
+        "Player",
+        "Player",
+        "Movement and character stats."
+    )
+
+local walkSpeed = 16
+local jumpPower = 50
 
 local function getHumanoid()
     local char = player.Character
-    return char and char:FindFirstChildOfClass("Humanoid")
+
+    return char
+        and char:FindFirstChildOfClass(
+            "Humanoid"
+        )
 end
 
 local function applyStats()
     local h = getHumanoid()
-    if h then h.WalkSpeed = walkSpeed; h.UseJumpPower = true; h.JumpPower = jumpPower end
+
+    if h then
+        h.WalkSpeed = walkSpeed
+        h.UseJumpPower = true
+        h.JumpPower = jumpPower
+    end
 end
 
-makeSlider(playerCard, "Walk Speed", 12, 0, 50, 16, function(v) walkSpeed = v; applyStats() end)
-makeSlider(playerCard, "Jump Power", 64, 0, 150, 50, function(v) jumpPower = v; applyStats() end)
-makeToggle(playerCard, "Infinite Jump", 5, function(on) end)
+makeSlider(
+    playerCard,
+    "Walk Speed",
+    12,
+    0,
+    50,
+    16,
+    function(v)
+        walkSpeed = v
+        applyStats()
+    end
+)
 
-player.CharacterAdded:Connect(function() task.wait(0.5); applyStats() end)
+makeSlider(
+    playerCard,
+    "Jump Power",
+    64,
+    0,
+    150,
+    50,
+    function(v)
+        jumpPower = v
+        applyStats()
+    end
+)
 
-LoadingScreen.SetProgress(72, "Player controls loaded")
+makeToggle(
+    playerCard,
+    "Infinite Jump",
+    5,
+    function(on)
+    end
+)
+
+player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    applyStats()
+end)
+
+LoadingScreen.SetProgress(
+    72,
+    "Player controls loaded"
+)
 
 -- ===== Teleports page =====
-local teleportsPage, teleportsCard = makePage("Teleports", "Teleports", "Jump to key locations.")
-for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
-    local y = 12 + (i - 1) * 46
-    local tBtn = Instance.new("TextButton")
+local teleportsPage, teleportsCard =
+    makePage(
+        "Teleports",
+        "Teleports",
+        "Jump to key locations."
+    )
+
+for i, spotName in ipairs({
+    "Spawn",
+    "Shop",
+    "Farm",
+    "Base"
+}) do
+
+    local y =
+        12 + (i - 1) * 46
+
+    local tBtn =
+        Instance.new("TextButton")
+
     tBtn.AutoButtonColor = false
     tBtn.BackgroundColor3 = OFF
     tBtn.BorderSizePixel = 0
     tBtn.Text = spotName
-    tBtn.Font = Enum.Font.GothamMedium
+    tBtn.Font =
+        Enum.Font.GothamMedium
+
     tBtn.TextSize = 15
     tBtn.TextColor3 = WHITE
-    tBtn.Position = UDim2.fromOffset(16, y)
-    tBtn.Size = UDim2.new(1, -32, 0, 36)
+
+    tBtn.Position =
+        UDim2.fromOffset(16, y)
+
+    tBtn.Size =
+        UDim2.new(1, -32, 0, 36)
+
     tBtn.Parent = teleportsCard
+
     corner(tBtn, 8)
 end
 
-LoadingScreen.SetProgress(82, "Teleport buttons loaded")
+LoadingScreen.SetProgress(
+    82,
+    "Teleport buttons loaded"
+)
 
 -- ===== Misc / Anti-AFK =====
-local settingsPage, settingsCard = makePage("Misc", "Misc", "General settings and AFK protection.")
+local settingsPage, settingsCard =
+    makePage(
+        "Misc",
+        "Misc",
+        "General settings and AFK protection."
+    )
 
 local lagFixed = false
-makeToggle(settingsCard, "Fix Lag", 1, function(on)
-    if on and not lagFixed then
-        lagFixed = true
-        pcall(function() setfpscap(60) end)
-        pcall(function()
-            local L = game:GetService("Lighting")
-            L.GlobalShadows = false
-            L.Technology = Enum.Technology.Compatibility
-            L.FogEnd = 1000000
-            L.Brightness = 0
-            L.ClockTime = 12
-            L.GeographicLatitude = 0
-            for _,v in pairs(L:GetChildren()) do
-                if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
-                    if v:IsA("Sky") then v.StarCount = 0 else v:Destroy() end
-                    pcall(function() v.Enabled = false end)
+
+makeToggle(
+    settingsCard,
+    "Fix Lag",
+    1,
+    function(on)
+        if on and not lagFixed then
+            lagFixed = true
+
+            pcall(function()
+                setfpscap(60)
+            end)
+
+            pcall(function()
+                local L =
+                    game:GetService(
+                        "Lighting"
+                    )
+
+                L.GlobalShadows = false
+                L.Technology =
+                    Enum.Technology.Compatibility
+
+                L.FogEnd = 1000000
+                L.Brightness = 0
+                L.ClockTime = 12
+                L.GeographicLatitude = 0
+
+                for _, v in pairs(
+                    L:GetChildren()
+                ) do
+                    if v:IsA("PostEffect")
+                        or v:IsA("Atmosphere")
+                        or v:IsA("Sky") then
+
+                        if v:IsA("Sky") then
+                            v.StarCount = 0
+                        else
+                            v:Destroy()
+                        end
+
+                        pcall(function()
+                            v.Enabled = false
+                        end)
+                    end
                 end
-            end
 
-            local T = workspace:FindFirstChildOfClass("Terrain")
-            if T then T.WaterWaveSize = 0 T.WaterWaveSpeed = 0 T.WaterReflectance = 0 T.WaterTransparency = 1 pcall(function() T.Decoration = false end) end
-            local function clear(v)
-                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-                    v.Enabled = false v:Destroy()
-                elseif v:IsA("Decal") or v:IsA("Texture") then
-                    v.Transparency = 1 v:Destroy()
-                elseif v:IsA("BasePart") then
-                    v.CastShadow = false v.Reflectance = 0 v.Material = Enum.Material.SmoothPlastic
-                elseif v:IsA("MeshPart") then
-                    v.RenderFidelity = Enum.RenderFidelity.Performance v.CastShadow = false
-                elseif v:IsA("Accessory") and not v.Parent:IsA("Tool") then
-                    pcall(function() if game.Players:GetPlayerFromCharacter(v.Parent) ~= game.Players.LocalPlayer then v:Destroy() end end)
+                local T =
+                    workspace:FindFirstChildOfClass(
+                        "Terrain"
+                    )
+
+                if T then
+                    T.WaterWaveSize = 0
+                    T.WaterWaveSpeed = 0
+                    T.WaterReflectance = 0
+                    T.WaterTransparency = 1
+
+                    pcall(function()
+                        T.Decoration = false
+                    end)
                 end
-            end
-            for _,v in pairs(game:GetDescendants()) do pcall(clear,v) end
-            game.DescendantAdded:Connect(function(v) task.wait(0.1) pcall(clear,v) end)
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        end)
-    end 
-end)
 
-makeSlider(settingsCard, "GUI Size", 52, 50, 150, 100, function(v)
-    userGuiScale = v / 100
-    updateScale()
-end)
+                local function clear(v)
+                    if v:IsA("ParticleEmitter")
+                        or v:IsA("Trail")
+                        or v:IsA("Beam")
+                        or v:IsA("Smoke")
+                        or v:IsA("Fire")
+                        or v:IsA("Sparkles") then
 
-label(settingsCard, "Anti-AFK is always ON.", 14, WHITE, UDim2.fromOffset(16, 102), UDim2.fromOffset(260, 24), Enum.Font.GothamMedium)
-label(settingsCard, "Prevents the game from idling you out.", 12, GRAY, UDim2.fromOffset(16, 126), UDim2.fromOffset(340, 22), Enum.Font.Gotham)
+                        v.Enabled = false
+                        v:Destroy()
 
-local removeGuiBtn = Instance.new("TextButton")
+                    elseif v:IsA("Decal")
+                        or v:IsA("Texture") then
+
+                        v.Transparency = 1
+                        v:Destroy()
+
+                    elseif v:IsA("BasePart") then
+                        v.CastShadow = false
+                        v.Reflectance = 0
+                        v.Material =
+                            Enum.Material.SmoothPlastic
+
+                    elseif v:IsA("MeshPart") then
+                        v.RenderFidelity =
+                            Enum.RenderFidelity.Performance
+
+                        v.CastShadow = false
+
+                    elseif v:IsA("Accessory")
+                        and not v.Parent:IsA("Tool") then
+
+                        pcall(function()
+                            if game.Players:GetPlayerFromCharacter(
+                                v.Parent
+                            )
+                                ~= game.Players.LocalPlayer then
+
+                                v:Destroy()
+                            end
+                        end)
+                    end
+                end
+
+                for _, v in pairs(
+                    game:GetDescendants()
+                ) do
+                    pcall(clear, v)
+                end
+
+                game.DescendantAdded:Connect(
+                    function(v)
+                        task.wait(0.1)
+                        pcall(clear, v)
+                    end
+                )
+
+                settings().Rendering.QualityLevel =
+                    Enum.QualityLevel.Level01
+            end)
+        end
+    end
+)
+
+makeSlider(
+    settingsCard,
+    "GUI Size",
+    52,
+    50,
+    150,
+    100,
+    function(v)
+        userGuiScale = v / 100
+        updateScale()
+    end
+)
+
+label(
+    settingsCard,
+    "Anti-AFK is always ON.",
+    14,
+    WHITE,
+    UDim2.fromOffset(16, 102),
+    UDim2.fromOffset(260, 24),
+    Enum.Font.GothamMedium
+)
+
+label(
+    settingsCard,
+    "Prevents the game from idling you out.",
+    12,
+    GRAY,
+    UDim2.fromOffset(16, 126),
+    UDim2.fromOffset(340, 22),
+    Enum.Font.Gotham
+)
+
+local removeGuiBtn =
+    Instance.new("TextButton")
+
 removeGuiBtn.AutoButtonColor = false
 removeGuiBtn.BackgroundColor3 = RED_DARK
 removeGuiBtn.Text = "Remove GUI"
-removeGuiBtn.Font = Enum.Font.GothamMedium
+removeGuiBtn.Font =
+    Enum.Font.GothamMedium
+
 removeGuiBtn.TextSize = 14
 removeGuiBtn.TextColor3 = WHITE
-removeGuiBtn.Position = UDim2.fromOffset(16, 170)
-removeGuiBtn.Size = UDim2.fromOffset(390, 36)
+
+removeGuiBtn.Position =
+    UDim2.fromOffset(16, 170)
+
+removeGuiBtn.Size =
+    UDim2.fromOffset(390, 36)
+
 removeGuiBtn.Parent = settingsCard
+
 corner(removeGuiBtn, 8)
 
 removeGuiBtn.MouseButton1Click:Connect(function()
@@ -2052,43 +4277,96 @@ removeGuiBtn.MouseButton1Click:Connect(function()
     autoPickGems = false
     autoTNT = false
     autoCollectHay = false
+    autoTPHay = false
+    lastTPHayTarget = nil
+
     superHyperGemsFlags.AutoFarmGems = false
 
     if vacuumStarted then
-        pcall(function() VacuumAction:FireServer("Stop") end)
+        pcall(function()
+            VacuumAction:FireServer("Stop")
+        end)
+
         vacuumStarted = false
     end
 
     stopAutoNeedle()
     stopAutoPickGems()
     removeNeedleHighlight()
+
     UserInputService.MouseIconEnabled = true
-    gui:Destroy() 
+
+    gui:Destroy()
 end)
 
 player.Idled:Connect(function()
     pcall(function()
-        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
+        VirtualUser:Button2Down(
+            Vector2.new(0, 0),
+            workspace.CurrentCamera
+                and workspace.CurrentCamera.CFrame
+                or CFrame.new()
+        )
+
         task.wait(1)
-        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
+
+        VirtualUser:Button2Up(
+            Vector2.new(0, 0),
+            workspace.CurrentCamera
+                and workspace.CurrentCamera.CFrame
+                or CFrame.new()
+        )
     end)
 end)
 
-LoadingScreen.SetProgress(90, "Misc buttons loaded")
+LoadingScreen.SetProgress(
+    90,
+    "Misc buttons loaded"
+)
 
--- Gems display from PlayerStatsUI
 task.spawn(function()
     while gui.Parent do
-        local ok, textValue = pcall(function()
-            local statsUI = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("PlayerStatsUI")
-            local gemLabel = statsUI and statsUI:FindFirstChild("Frame") and statsUI.Frame:FindFirstChild("GemFrame") and statsUI.Frame.GemFrame:FindFirstChild("GemLabel")
-            return gemLabel and gemLabel.Text
-        end)
-        if ok and textValue then gemsDisplay.Text = "Gems: " .. tostring(textValue) end
+        local ok, textValue =
+            pcall(function()
+                local statsUI =
+                    player:FindFirstChild(
+                        "PlayerGui"
+                    )
+                    and player.PlayerGui:FindFirstChild(
+                        "PlayerStatsUI"
+                    )
+
+                local gemLabel =
+                    statsUI
+                    and statsUI:FindFirstChild(
+                        "Frame"
+                    )
+                    and statsUI.Frame:FindFirstChild(
+                        "GemFrame"
+                    )
+                    and statsUI.Frame.GemFrame:FindFirstChild(
+                        "GemLabel"
+                    )
+
+                return gemLabel
+                    and gemLabel.Text
+            end)
+
+        if ok and textValue then
+            gemsDisplay.Text =
+                "Gems: "
+                .. tostring(textValue)
+        end
+
         task.wait(0.25)
     end
 end)
 
 selectTab("Home")
-LoadingScreen.SetProgress(100, "All GUI buttons loaded")
+
+LoadingScreen.SetProgress(
+    100,
+    "All GUI buttons loaded"
+)
+
 LoadingScreen.Finish()
