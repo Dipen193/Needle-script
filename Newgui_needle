@@ -27,6 +27,187 @@ local OFF = Color3.fromRGB(38, 38, 46)
 local GRAY = Color3.fromRGB(160, 160, 175)
 local WHITE = Color3.fromRGB(240, 240, 245)
 
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ==========================================================
+-- LOADING SCREEN
+-- Keeps the loader visible while the main GUI initializes.
+-- It only closes after the complete script reaches the end.
+-- ==========================================================
+local LoadingScreen = {}
+
+do
+    local oldLoader = playerGui and playerGui:FindFirstChild("ScriptHubLoader")
+    if oldLoader then oldLoader:Destroy() end
+
+    local loaderGui = Instance.new("ScreenGui")
+    loaderGui.Name = "ScriptHubLoader"
+    loaderGui.ResetOnSpawn = false
+    loaderGui.IgnoreGuiInset = true
+    loaderGui.DisplayOrder = 100000
+    loaderGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    loaderGui.Parent = playerGui
+
+    local backdrop = Instance.new("Frame")
+    backdrop.BackgroundColor3 = BG
+    backdrop.BackgroundTransparency = 0
+    backdrop.BorderSizePixel = 0
+    backdrop.Size = UDim2.fromScale(1, 1)
+    backdrop.ZIndex = 1
+    backdrop.Parent = loaderGui
+
+    local card = Instance.new("Frame")
+    card.BackgroundColor3 = CARD
+    card.BorderSizePixel = 0
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.Position = UDim2.fromScale(0.5, 0.5)
+    card.Size = UDim2.fromOffset(360, 230)
+    card.ZIndex = 2
+    card.Parent = loaderGui
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 14)
+    cardCorner.Parent = card
+
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = RED
+    cardStroke.Thickness = 2
+    cardStroke.Parent = card
+
+    local logo = Instance.new("ImageLabel")
+    logo.BackgroundTransparency = 1
+    logo.Image = CAT_LOGO
+    logo.ImageColor3 = WHITE
+    logo.ScaleType = Enum.ScaleType.Fit
+    logo.AnchorPoint = Vector2.new(0.5, 0)
+    logo.Position = UDim2.new(0.5, 0, 0, 20)
+    logo.Size = UDim2.fromOffset(58, 58)
+    logo.ZIndex = 3
+    logo.Parent = card
+
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Text = TITLE
+    title.TextColor3 = WHITE
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 24
+    title.TextXAlignment = Enum.TextXAlignment.Center
+    title.AnchorPoint = Vector2.new(0.5, 0)
+    title.Position = UDim2.new(0.5, 0, 0, 82)
+    title.Size = UDim2.new(1, -30, 0, 30)
+    title.ZIndex = 3
+    title.Parent = card
+
+    local status = Instance.new("TextLabel")
+    status.BackgroundTransparency = 1
+    status.Text = "Initializing..."
+    status.TextColor3 = GRAY
+    status.Font = Enum.Font.Gotham
+    status.TextSize = 13
+    status.TextXAlignment = Enum.TextXAlignment.Center
+    status.AnchorPoint = Vector2.new(0.5, 0)
+    status.Position = UDim2.new(0.5, 0, 0, 118)
+    status.Size = UDim2.new(1, -30, 0, 22)
+    status.ZIndex = 3
+    status.Parent = card
+
+    local barBack = Instance.new("Frame")
+    barBack.BackgroundColor3 = LINE
+    barBack.BorderSizePixel = 0
+    barBack.AnchorPoint = Vector2.new(0.5, 0)
+    barBack.Position = UDim2.new(0.5, 0, 0, 150)
+    barBack.Size = UDim2.fromOffset(300, 8)
+    barBack.ZIndex = 3
+    barBack.Parent = card
+
+    local barCorner = Instance.new("UICorner")
+    barCorner.CornerRadius = UDim.new(0, 4)
+    barCorner.Parent = barBack
+
+    local bar = Instance.new("Frame")
+    bar.BackgroundColor3 = RED
+    bar.BorderSizePixel = 0
+    bar.Size = UDim2.new(0, 0, 1, 0)
+    bar.ZIndex = 4
+    bar.Parent = barBack
+
+    local barFillCorner = Instance.new("UICorner")
+    barFillCorner.CornerRadius = UDim.new(0, 4)
+    barFillCorner.Parent = bar
+
+    local percent = Instance.new("TextLabel")
+    percent.BackgroundTransparency = 1
+    percent.Text = "0%"
+    percent.TextColor3 = WHITE
+    percent.Font = Enum.Font.GothamMedium
+    percent.TextSize = 12
+    percent.TextXAlignment = Enum.TextXAlignment.Right
+    percent.AnchorPoint = Vector2.new(1, 0)
+    percent.Position = UDim2.new(1, -30, 0, 164)
+    percent.Size = UDim2.fromOffset(60, 20)
+    percent.ZIndex = 3
+    percent.Parent = card
+
+    local credit = Instance.new("TextLabel")
+    credit.BackgroundTransparency = 1
+    credit.Text = "Made by " .. CREDIT
+    credit.TextColor3 = GRAY
+    credit.Font = Enum.Font.Gotham
+    credit.TextSize = 11
+    credit.TextXAlignment = Enum.TextXAlignment.Center
+    credit.AnchorPoint = Vector2.new(0.5, 0)
+    credit.Position = UDim2.new(0.5, 0, 1, -30)
+    credit.Size = UDim2.new(1, -30, 0, 18)
+    credit.ZIndex = 3
+    credit.Parent = card
+
+    local progress = 0
+    local destroyed = false
+
+    function LoadingScreen.SetProgress(value, message)
+        if destroyed then return end
+        progress = math.clamp(tonumber(value) or progress, 0, 100)
+        status.Text = message or status.Text
+        percent.Text = tostring(math.floor(progress + 0.5)) .. "%"
+        TweenService:Create(
+            bar,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(progress / 100, 0, 1, 0)}
+        ):Play()
+    end
+
+    function LoadingScreen.Finish()
+        if destroyed then return end
+        LoadingScreen.SetProgress(100, "Ready!")
+        task.wait(0.18)
+
+        local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        for _, obj in ipairs(loaderGui:GetDescendants()) do
+            if obj:IsA("GuiObject") then
+                local goal = {BackgroundTransparency = 1}
+                if obj:IsA("TextLabel") then
+                    goal.TextTransparency = 1
+                elseif obj:IsA("ImageLabel") then
+                    goal.ImageTransparency = 1
+                end
+                pcall(function() TweenService:Create(obj, fadeInfo, goal):Play() end)
+            elseif obj:IsA("UIStroke") then
+                pcall(function() TweenService:Create(obj, fadeInfo, {Transparency = 1}):Play() end)
+            end
+        end
+
+        task.wait(0.4)
+        destroyed = true
+        if loaderGui then loaderGui:Destroy() end
+    end
+
+    -- Let Roblox render the loader before GUI construction continues.
+    -- Progress is based only on GUI construction, not game/place objects.
+    LoadingScreen.SetProgress(5, "Creating GUI...")
+    RunService.RenderStepped:Wait()
+end
+
 -- ===== Helpers =====
 local function corner(obj, r)
     local c = Instance.new("UICorner")
@@ -81,7 +262,6 @@ local function makeIcon(parent, assetId, color, pos, size)
 end
 
 -- ===== ScreenGui =====
-local playerGui = player:WaitForChild("PlayerGui")
 local old = playerGui:FindFirstChild("ScriptHub")
 if old then old:Destroy() end
 
@@ -748,6 +928,8 @@ fastGemsBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+LoadingScreen.SetProgress(20, "Home buttons loaded")
+
 -- ===== Main Farm Tab =====
 local combatPage, combatCard = makePage("Combat", "Main Farm", "Automatic Hay, Gem, & Needle harvesting.")
 combatCard.CanvasSize = UDim2.fromOffset(0, 330)
@@ -765,7 +947,18 @@ local function refreshNeedleCharacter(char)
     needleHumanoid = char and char:FindFirstChildOfClass("Humanoid")
     needleRoot = char and char:FindFirstChild("HumanoidRootPart")
 end
-refreshNeedleCharacter(player.Character or player.CharacterAdded:Wait())
+do
+    local char = player.Character
+    if char then
+        refreshNeedleCharacter(char)
+    else
+        refreshNeedleCharacter(nil)
+        task.spawn(function()
+            local newChar = player.Character or player.CharacterAdded:Wait()
+            refreshNeedleCharacter(newChar)
+        end)
+    end
+end
 
 local function getNeedle()
     local mainFolder = workspace:FindFirstChild("Main")
@@ -949,8 +1142,17 @@ local autoPickGems = false
 local gemCollectConnection = nil
 local collectedGemIds = {}
 
-local GemsClient = workspace:WaitForChild("GemsClient")
-local CollectGem = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("CollectGem")
+-- Place-specific objects are resolved only when the option is actually used.
+-- This prevents this GUI from waiting forever in games that do not have GemsClient.
+local GemsClient = nil
+local CollectGem = nil
+
+local function getGemObjects()
+    GemsClient = workspace:FindFirstChild("GemsClient")
+    local nh = ReplicatedStorage:FindFirstChild("NeedleHaystack")
+    CollectGem = nh and nh:FindFirstChild("CollectGem")
+    return GemsClient, CollectGem
+end
 
 local function collectGemObject(gem)
     if not autoPickGems or not gem or not gem.Parent then return end
@@ -972,6 +1174,10 @@ local function scanExistingGems()
 end
 
 local function startAutoPickGems()
+    local gemFolder, collectEvent = getGemObjects()
+    if not gemFolder or not collectEvent then return end
+    GemsClient = gemFolder
+    CollectGem = collectEvent
     if gemCollectConnection then
         gemCollectConnection:Disconnect()
         gemCollectConnection = nil
@@ -1001,10 +1207,25 @@ end)
 -- 4. Auto TNT Option
 local autoTNT = false
 local tntBusy = false
-local NH = ReplicatedStorage:WaitForChild("NeedleHaystack")
-local TntAction = NH:WaitForChild("TntAction")
-local HeldToolState = NH:WaitForChild("HeldToolState")
-local hayFolder = workspace:WaitForChild("HaystackClient")
+-- Place-specific Main Farm objects are resolved lazily.
+local NH = ReplicatedStorage:FindFirstChild("NeedleHaystack")
+local TntAction = nil
+local HeldToolState = nil
+local PickHay = nil
+local PitchforkDig = nil
+local VacuumAction = nil
+local hayFolder = nil
+
+local function refreshHayTools()
+    NH = ReplicatedStorage:FindFirstChild("NeedleHaystack")
+    TntAction = NH and NH:FindFirstChild("TntAction")
+    HeldToolState = NH and NH:FindFirstChild("HeldToolState")
+    PickHay = NH and NH:FindFirstChild("PickHay")
+    PitchforkDig = NH and NH:FindFirstChild("PitchforkDig")
+    VacuumAction = NH and NH:FindFirstChild("VacuumAction")
+    hayFolder = workspace:FindFirstChild("HaystackClient")
+    return NH, hayFolder
+end
 
 local function getHayPosition(hay)
     if hay:IsA("BasePart") then return hay.Position end
@@ -1016,6 +1237,9 @@ local function getHayPosition(hay)
 end
 
 local function getHighestHay()
+    refreshHayTools()
+    if not hayFolder then return nil end
+    if not TntAction or not HeldToolState then return nil end
     local camera = workspace.CurrentCamera
     local origin = camera.CFrame.Position
     local look = camera.CFrame.LookVector
@@ -1043,6 +1267,8 @@ local function getHighestHay()
 end
 
 local function throwAtHighest()
+    refreshHayTools()
+    if not TntAction or not HeldToolState then return end
     local character = player.Character
     if not character then return end
     local root = character:FindFirstChild("HumanoidRootPart")
@@ -1090,12 +1316,11 @@ end)
 -- 5. Auto Collect Hay (3 Tools in 1)
 local autoCollectHay = false
 local vacuumStarted = false
-local PickHay = NH:WaitForChild("PickHay")
-local PitchforkDig = NH:WaitForChild("PitchforkDig")
-local VacuumAction = NH:WaitForChild("VacuumAction")
 local lastPitchfork = 0
 
 local function getLookHay()
+    refreshHayTools()
+    if not hayFolder then return {} end
     local camera = workspace.CurrentCamera
     local origin = camera.CFrame.Position
     local direction = camera.CFrame.LookVector
@@ -1131,6 +1356,11 @@ end
 task.spawn(function()
     while gui and gui.Parent do
         if autoCollectHay then
+            refreshHayTools()
+            if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then
+                task.wait(0.5)
+                continue
+            end
             local candidates = getLookHay()
             if #candidates > 0 then
                 local pickIds, vacuumIds = {}, {}
@@ -1171,6 +1401,8 @@ end)
 makeToggleWithSub(combatCard, "Auto Collect Hay", "(use all 3 tools)", 192, function(on)
     autoCollectHay = on
     if on then
+        refreshHayTools()
+        if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then return end
         pcall(function() VacuumAction:FireServer("Start") end)
         vacuumStarted = true
     else
@@ -1186,6 +1418,8 @@ player.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     if needleAuto then startAutoNeedleLoop() end
 end)
+
+LoadingScreen.SetProgress(35, "Main Farm buttons loaded")
 
 -- ===== Visuals: Needle ESP =====
 local visualsPage, visualsCard = makePage("Visuals", "Visuals", "Needle highlighting.")
@@ -1228,6 +1462,8 @@ task.spawn(function()
     end
 end)
 
+LoadingScreen.SetProgress(60, "Visuals button loaded")
+
 -- ===== Player page =====
 local playerPage, playerCard = makePage("Player", "Player", "Movement and character stats.")
 local walkSpeed, jumpPower = 16, 50
@@ -1248,6 +1484,8 @@ makeToggle(playerCard, "Infinite Jump", 5, function(on) end)
 
 player.CharacterAdded:Connect(function() task.wait(0.5); applyStats() end)
 
+LoadingScreen.SetProgress(72, "Player controls loaded")
+
 -- ===== Teleports page =====
 local teleportsPage, teleportsCard = makePage("Teleports", "Teleports", "Jump to key locations.")
 for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
@@ -1265,6 +1503,8 @@ for i, spotName in ipairs({"Spawn", "Shop", "Farm", "Base"}) do
     tBtn.Parent = teleportsCard
     corner(tBtn, 8)
 end
+
+LoadingScreen.SetProgress(82, "Teleport buttons loaded")
 
 -- ===== Misc / Anti-AFK =====
 local settingsPage, settingsCard = makePage("Misc", "Misc", "General settings and AFK protection.")
@@ -1359,6 +1599,8 @@ player.Idled:Connect(function()
     end)
 end)
 
+LoadingScreen.SetProgress(90, "Misc buttons loaded")
+
 -- Gems display from PlayerStatsUI
 task.spawn(function()
     while gui.Parent do
@@ -1373,3 +1615,5 @@ task.spawn(function()
 end)
 
 selectTab("Home")
+LoadingScreen.SetProgress(100, "All GUI buttons loaded")
+LoadingScreen.Finish()
