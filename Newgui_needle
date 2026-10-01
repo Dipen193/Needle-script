@@ -1083,58 +1083,167 @@ makeToggleWithSub(combatCard, "Auto Pick Needle", nil, 6, function(on)
     if on then startAutoNeedleLoop() else stopAutoNeedle() end
 end)
 
--- 2. Auto Sell Hay (With Delays)
+-- Shared hay state is declared before Auto Sell because selling can restart
+-- the vacuum after teleporting.
+local autoCollectHay = false
+local vacuumStarted = false
+local VacuumAction = nil
+local lastHaySeen = 0
+local lastVacuumRefresh = 0
+-- 2. Auto Sell Hay
 local autoSellHay = false
 local isSellingHay = false
+local restartHayVacuum -- assigned after the hay-tool functions are created
+
+-- Read a number even if the game's UI formats it like "12/20", "12 / 20",
+-- "12 Hay", etc. This makes the sell check work even when the inventory
+-- temporarily goes OVER the displayed maximum.
+local function readFirstNumber(value)
+    if value == nil then return nil end
+    -- Roblox UI can format hay amounts with thousands separators, e.g.
+    -- "1,207". Remove commas before converting so overflow is detected.
+    local text = tostring(value):gsub(",", "")
+    local numberText = text:match("%-?%d+%.?%d*")
+    return numberText and tonumber(numberText) or nil
+end
+
+local function readCapacityPair(value)
+    if value == nil then return nil, nil end
+    -- Supports "953/1,207", "953 / 1,207", etc.
+    local text = tostring(value):gsub(",", "")
+    local a, b = text:match("(%d+)%s*/%s*(%d+)")
+    if a and b then
+        return tonumber(a), tonumber(b)
+    end
+    return nil, nil
+end
 
 local function sellAndReturnHay()
     if isSellingHay then return end
     isSellingHay = true
+
+    -- Stop the vacuum BEFORE teleporting. Leaving it running while moving to
+    -- the sell area can leave the server-side vacuum session invalid.
+    if vacuumStarted and VacuumAction then
+        pcall(function()
+            VacuumAction:FireServer("Stop")
+        end)
+        vacuumStarted = false
+    end
 
     pcall(function()
         local char = player.Character or player.CharacterAdded:Wait()
         local root = char:WaitForChild("HumanoidRootPart")
         local sellPart = workspace:WaitForChild("SellModel"):WaitForChild("SellPart")
         local sellEvent = ReplicatedStorage:WaitForChild("NeedleHaystack"):WaitForChild("SellHay")
-        
+
         local originalCFrame = root.CFrame
         root.CFrame = sellPart.CFrame + Vector3.new(0, 3, 0)
-        
-        task.wait(0.2) -- Delay before selling
+
+        task.wait(0.25)
         sellEvent:FireServer()
-        task.wait(0.3) -- Delay after selling
-        
+        task.wait(0.45)
+
         if root and root.Parent then
             root.CFrame = originalCFrame
         end
+
+        -- Start a fresh vacuum session after returning to the hay area.
+        task.wait(0.15)
+        if autoCollectHay and restartHayVacuum then
+            restartHayVacuum()
+        end
     end)
-    
-    isSellingHay = false 
+
+    isSellingHay = false
 end
 
 task.spawn(function()
     while gui and gui.Parent do
-        if autoSellHay then
+        if autoSellHay and not isSellingHay then
             pcall(function()
-                local capacityUI = player.PlayerGui:WaitForChild("HUD"):WaitForChild("BottomLeft"):WaitForChild("Capacity")
-                local currentAmount = capacityUI:WaitForChild("CurrentAmount")
-                local totalCapacity = capacityUI:WaitForChild("BackgroundHaybale"):WaitForChild("TotalCapacity")
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local hud = playerGui and playerGui:FindFirstChild("HUD")
 
-                local current = tonumber(currentAmount.Text)
-                local maximum = tonumber(totalCapacity.Text)
-                
-                -- Checks if capacity is full OR over max capacity
-                if current and maximum and current >= maximum then
+                -- Do not depend on one exact HUD layout. The game can rebuild
+                -- the Capacity UI, and the text can temporarily show overflow.
+                local function findDescendant(parent, name)
+                    if not parent then return nil end
+                    local direct = parent:FindFirstChild(name)
+                    if direct then return direct end
+                    for _, obj in ipairs(parent:GetDescendants()) do
+                        if obj.Name == name then
+                            return obj
+                        end
+                    end
+                    return nil
+                end
+
+                local capacityUI = findDescendant(hud, "Capacity")
+                local currentAmount = findDescendant(capacityUI or hud, "CurrentAmount")
+                local totalCapacity = findDescendant(capacityUI or hud, "TotalCapacity")
+
+                local function textValue(obj)
+                    if not obj then return nil end
+                    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                        return obj.Text
+                    end
+                    local ok, value = pcall(function() return obj.Value end)
+                    if ok and value ~= nil then return tostring(value) end
+                    return nil
+                end
+
+                local currentText = textValue(currentAmount)
+                local maxText = textValue(totalCapacity)
+                local current = readFirstNumber(currentText)
+                local maximum = readFirstNumber(maxText)
+
+                -- The game's BottomLeft.Capacity UI uses separate labels for
+                -- current hay and maximum capacity. The current label can be
+                -- formatted with commas, e.g. "1,207", so parse the FULL
+                -- number rather than stopping at the first digit.
+                --
+                -- Capacity display may also be a single "MAX/CURRENT" label.
+                -- In that format the FIRST number is MAX and the SECOND is
+                -- CURRENT, and CURRENT is allowed to overflow indefinitely.
+                local pairMax, pairCurrent = readCapacityPair(currentText)
+                if pairMax and pairCurrent then
+                    maximum = pairMax
+                    current = pairCurrent
+                end
+                local pairMax2, pairCurrent2 = readCapacityPair(maxText)
+                if pairMax2 and pairCurrent2 then
+                    maximum = pairMax2
+                    current = pairCurrent2
+                end
+
+                -- If the named TotalCapacity node was rebuilt/missing, look
+                -- for a capacity-like text containing a slash as a fallback.
+                if not maximum and hud then
+                    for _, obj in ipairs(hud:GetDescendants()) do
+                        if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                            local txt = tostring(obj.Text or ""):gsub(",", "")
+                            local a, b = txt:match("(%d+)%s*/%s*(%d+)")
+                            if a and b then
+                                -- Capacity text is MAX/CURRENT. Keep the
+                                -- overflow value exactly as displayed.
+                                maximum = tonumber(a)
+                                current = tonumber(b)
+                                break
+                            end
+                        end
+                    end
+                end
+
+                -- >= is intentional: this catches both exactly-full and
+                -- OVERFLOW inventories (e.g. 241/240).
+                if current and maximum and maximum > 0 and current >= maximum then
                     sellAndReturnHay()
                 end
             end)
         end
-        task.wait(0.2)
-    end 
-end)
-
-makeToggleWithSub(combatCard, "Auto Sell Hay", "Sells when inventory reaches or exceeds max", 50, function(on)
-    autoSellHay = on
+        task.wait(0.15)
+    end
 end)
 
 -- 3. Auto Pick Gems
@@ -1199,7 +1308,7 @@ local function stopAutoPickGems()
     table.clear(collectedGemIds)
 end
 
-makeToggleWithSub(combatCard, "Auto Pick Gems", nil, 98, function(on)
+makeToggleWithSub(combatCard, "Auto Pick Gems", nil, 48, function(on)
     autoPickGems = on
     if on then startAutoPickGems() else stopAutoPickGems() end
 end)
@@ -1207,13 +1316,13 @@ end)
 -- 4. Auto TNT Option
 local autoTNT = false
 local tntBusy = false
+
 -- Place-specific Main Farm objects are resolved lazily.
 local NH = ReplicatedStorage:FindFirstChild("NeedleHaystack")
 local TntAction = nil
 local HeldToolState = nil
 local PickHay = nil
 local PitchforkDig = nil
-local VacuumAction = nil
 local hayFolder = nil
 
 local function refreshHayTools()
@@ -1225,6 +1334,16 @@ local function refreshHayTools()
     VacuumAction = NH and NH:FindFirstChild("VacuumAction")
     hayFolder = workspace:FindFirstChild("HaystackClient")
     return NH, hayFolder
+end
+
+local function resetTntState()
+    -- If Auto TNT was enabled before the player owned TNT, the previous
+    -- failed attempt can leave the server's held-tool state out of sync.
+    if HeldToolState then
+        pcall(function()
+            HeldToolState:FireServer()
+        end)
+    end
 end
 
 local function getHayPosition(hay)
@@ -1268,30 +1387,57 @@ end
 
 local function throwAtHighest()
     refreshHayTools()
-    if not TntAction or not HeldToolState then return end
-    local character = player.Character
-    if not character then return end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local target = getHighestHay()
-    if not target then return end
+    if not TntAction or not HeldToolState then return false end
 
-    local startPosition = root.Position + Vector3.new(0,3,0)
-    local direction = (target.position - startPosition).Unit
+    local character = player.Character
+    if not character then return false end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    local target = getHighestHay()
+    if not target then return false end
+
+    -- Reset first so buying TNT while Auto TNT is already ON does not require
+    -- toggling the option off and back on.
+    resetTntState()
+
+    local startPosition = root.Position + Vector3.new(0, 3, 0)
+    local directionVector = target.position - startPosition
+    if directionVector.Magnitude <= 0 then return false end
+
+    local direction = directionVector.Unit
     local throwCFrame = CFrame.lookAt(startPosition, startPosition + direction)
     local velocity = direction * 65
 
-    TntAction:FireServer("light")
+    pcall(function()
+        TntAction:FireServer("light")
+    end)
     task.wait(0.48)
-    HeldToolState:FireServer("Tnt", "lighting")
+
+    pcall(function()
+        HeldToolState:FireServer("Tnt", "lighting")
+    end)
     task.wait(0.1)
-    HeldToolState:FireServer("Tnt", "ready")
+
+    pcall(function()
+        HeldToolState:FireServer("Tnt", "ready")
+    end)
     task.wait(0.1)
-    HeldToolState:FireServer("Tnt", "charging")
+
+    pcall(function()
+        HeldToolState:FireServer("Tnt", "charging")
+    end)
     task.wait(0.2)
-    TntAction:FireServer("throw", throwCFrame, velocity)
+
+    pcall(function()
+        TntAction:FireServer("throw", throwCFrame, velocity)
+    end)
     task.wait(0.1)
-    HeldToolState:FireServer()
+
+    -- Always clear the held state after an attempt. This is important when
+    -- the first attempts happened before TNT was purchased.
+    resetTntState()
+    return true
 end
 
 task.spawn(function()
@@ -1299,23 +1445,39 @@ task.spawn(function()
         if autoTNT then
             if not tntBusy then
                 tntBusy = true
-                pcall(throwAtHighest)
+                local didAttempt = false
+
+                pcall(function()
+                    didAttempt = throwAtHighest() == true
+                end)
+
                 tntBusy = false
+
+                -- Do not wait 20 seconds after a failed attempt. This lets
+                -- Auto TNT notice newly purchased TNT without re-toggling.
+                if didAttempt then
+                    task.wait(5)
+                else
+                    task.wait(1)
+                end
+            else
+                task.wait(0.1)
             end
-            task.wait(20)
         else
             task.wait(0.5)
         end
     end
 end)
 
-makeToggleWithSub(combatCard, "Auto TNT", "(use auto tnt. Need to buy tnt first)", 142, function(on)
+makeToggleWithSub(combatCard, "Auto TNT", "(keeps checking after TNT is bought)", 90, function(on)
     autoTNT = on
+    if not on then
+        tntBusy = false
+        resetTntState()
+    end
 end)
 
 -- 5. Auto Collect Hay (3 Tools in 1)
-local autoCollectHay = false
-local vacuumStarted = false
 local lastPitchfork = 0
 
 local function getLookHay()
@@ -1353,70 +1515,157 @@ local function getLookHay()
     return candidates
 end
 
+restartHayVacuum = function()
+    refreshHayTools()
+    if not VacuumAction then
+        vacuumStarted = false
+        return false
+    end
+
+    if vacuumStarted then
+        pcall(function()
+            VacuumAction:FireServer("Stop")
+        end)
+        vacuumStarted = false
+        task.wait(0.05)
+    end
+
+    pcall(function()
+        VacuumAction:FireServer("Start")
+    end)
+    vacuumStarted = true
+    lastVacuumRefresh = os.clock()
+    return true
+end
+
 task.spawn(function()
     while gui and gui.Parent do
         if autoCollectHay then
             refreshHayTools()
-            if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then
-                task.wait(0.5)
-                continue
-            end
-            local candidates = getLookHay()
-            if #candidates > 0 then
-                local pickIds, vacuumIds = {}, {}
-                for i = 1, math.min(#candidates, 12) do table.insert(pickIds, candidates[i].id) end
-                for i = 1, math.min(#candidates, 8) do table.insert(vacuumIds, candidates[i].id) end
 
-                local primaryId = pickIds[1]
-                local additionalIds = {}
-                for i = 2, #pickIds do table.insert(additionalIds, pickIds[i]) end
-
-                -- Tool 1: Pick Hay
-                pcall(function() PickHay:FireServer(primaryId, additionalIds) end)
-
-                -- Tool 2: Pitchfork
-                if os.clock() - lastPitchfork >= 0.85 then
-                    lastPitchfork = os.clock()
-                    pcall(function() PitchforkDig:FireServer(primaryId) end)
+            -- If selling, let the sell routine handle the vacuum restart after
+            -- the player returns. This prevents competing Stop/Start calls.
+            if not isSellingHay then
+                if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then
+                    task.wait(0.5)
+                    continue
                 end
 
-                -- Tool 3: Vacuum
-                if vacuumStarted and #vacuumIds > 0 then
-                    local character = player.Character
-                    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
-                    if playerRoot then
+                -- The vacuum can silently stop on the server after a teleport
+                -- or after a tool state changes. Re-start it automatically.
+                if not vacuumStarted then
+                    restartHayVacuum()
+                end
+
+                local candidates = getLookHay()
+                if #candidates > 0 then
+                    -- If the player left the hay area and later comes back,
+                    -- refresh the server-side vacuum session. The old session
+                    -- can remain true locally while no longer being active.
+                    local now = os.clock()
+                    if lastHaySeen > 0 and (now - lastHaySeen) >= 0.8 then
+                        restartHayVacuum()
+                    end
+                    lastHaySeen = now
+
+                    -- Also refresh periodically so a silent server-side
+                    -- vacuum timeout cannot permanently kill Auto Collect.
+                    if (now - lastVacuumRefresh) >= 8 then
+                        restartHayVacuum()
+                        lastVacuumRefresh = now
+                    end
+
+                    local pickIds, vacuumIds = {}, {}
+                    for i = 1, math.min(#candidates, 12) do
+                        table.insert(pickIds, candidates[i].id)
+                    end
+                    for i = 1, math.min(#candidates, 8) do
+                        table.insert(vacuumIds, candidates[i].id)
+                    end
+
+                    local primaryId = pickIds[1]
+                    local additionalIds = {}
+                    for i = 2, #pickIds do
+                        table.insert(additionalIds, pickIds[i])
+                    end
+
+                    -- Tool 1: Pick Hay
+                    pcall(function()
+                        PickHay:FireServer(primaryId, additionalIds)
+                    end)
+
+                    -- Tool 2: Pitchfork
+                    if os.clock() - lastPitchfork >= 0.85 then
+                        lastPitchfork = os.clock()
                         pcall(function()
-                            VacuumAction:FireServer("Tick", playerRoot.Position, candidates[1].position, vacuumIds)
+                            PitchforkDig:FireServer(primaryId)
                         end)
+                    end
+
+                    -- Tool 3: Vacuum
+                    if vacuumStarted and #vacuumIds > 0 then
+                        local character = player.Character
+                        local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+                        if playerRoot then
+                            pcall(function()
+                                VacuumAction:FireServer(
+                                    "Tick",
+                                    playerRoot.Position,
+                                    candidates[1].position,
+                                    vacuumIds
+                                )
+                            end)
+                        end
                     end
                 end
             end
-            task.wait(0.15)
+
+            task.wait(0.12)
         else
             task.wait(0.5)
         end
     end
 end)
 
-makeToggleWithSub(combatCard, "Auto Collect Hay", "(use all 3 tools)", 192, function(on)
+makeToggleWithSub(combatCard, "Auto Collect Hay", "(use all 3 tools)", 132, function(on)
     autoCollectHay = on
     if on then
         refreshHayTools()
-        if not PickHay or not PitchforkDig or not VacuumAction or not hayFolder then return end
-        pcall(function() VacuumAction:FireServer("Start") end)
-        vacuumStarted = true
+        -- Start asynchronously through the same recovery function used after
+        -- selling, so the option can stay enabled even while tools load.
+        restartHayVacuum()
     else
-        if vacuumStarted then
-            pcall(function() VacuumAction:FireServer("Stop") end)
-            vacuumStarted = false
+        if vacuumStarted and VacuumAction then
+            pcall(function()
+                VacuumAction:FireServer("Stop")
+            end)
         end
+        vacuumStarted = false
+        lastHaySeen = 0
     end
+end)
+
+-- 6. Auto Sell Hay
+makeToggleWithSub(combatCard, "Auto Sell Hay", "(sell when capacity is full)", 174, function(on)
+    autoSellHay = on
 end)
 
 player.CharacterAdded:Connect(function(char)
     refreshNeedleCharacter(char)
     task.wait(0.5)
-    if needleAuto then startAutoNeedleLoop() end
+
+    if needleAuto then
+        startAutoNeedleLoop()
+    end
+
+    -- Re-acquire place-specific hay remotes after respawn and restart the
+    -- vacuum if Auto Collect Hay was left enabled.
+    if autoCollectHay then
+        refreshHayTools()
+        if restartHayVacuum then
+            restartHayVacuum()
+        end
+    end
 end)
 
 LoadingScreen.SetProgress(35, "Main Farm buttons loaded")
