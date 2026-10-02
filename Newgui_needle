@@ -1007,6 +1007,9 @@ local homePage, homeCard = makePage(
     "Gems and class tools."
 )
 
+-- Space for the Auto Win control/status below the existing Home controls.
+homeCard.CanvasSize = UDim2.fromOffset(0, 320)
+
 local gemsDisplay = label(
     homeCard,
     "Gems: Loading...",
@@ -1563,6 +1566,24 @@ local needleHumanoid
 local needleRoot
 local needleBusy = false
 
+-- Forward-declared so Needle collection can use the same TNT remote
+-- that the normal Auto TNT system initializes later in the script.
+local TntAction = nil
+local HeldToolState = nil
+
+-- Forward declarations (defined further down) so the Needle routine can
+-- sell hay first and clear the hay closest to the Needle.
+local sellAndReturnHay
+local clearHayNearNeedle
+local needleHandedHook = nil
+local NeedleX = {}
+local tntBusy = false
+local autoCollectHay = false
+local restartHayVacuum
+local refreshHayTools
+local resetTntState
+local isSellingHay = false
+
 local function refreshNeedleCharacter(char)
     needleCharacter = char or player.Character
 
@@ -1710,6 +1731,77 @@ local function getNeedlePosition(needle)
     return nil
 end
 
+function NeedleX.mainNeedle()
+    local m = workspace:FindFirstChild("Main")
+    return m and m:FindFirstChild("Needle") or nil
+end
+
+-- True when the player is carrying the Needle (item in character/backpack
+-- or a "has/carry/hold/pick needle" flag).
+function NeedleX.carried()
+    local function scan(c)
+        if not c then
+            return false
+        end
+
+        for _, o in ipairs(c:GetChildren()) do
+            if o.Name:lower():find("needle", 1, true) then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    if scan(player.Character)
+        or scan(player:FindFirstChildOfClass("Backpack")) then
+        return true
+    end
+
+    for _, holder in ipairs({ player, player.Character }) do
+        if holder then
+            for k, v in pairs(holder:GetAttributes()) do
+                local n = tostring(k):lower()
+
+                if v == true
+                    and n:find("needle", 1, true)
+                    and not n:find("lock", 1, true)
+                    and (n:find("has", 1, true)
+                        or n:find("carry", 1, true)
+                        or n:find("hold", 1, true)
+                        or n:find("pick", 1, true)
+                        or n:find("grab", 1, true)) then
+
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+-- Point the camera at the Needle: Auto Collect picks hay in front of the
+-- camera, so the camera must look at the Needle area.
+function NeedleX.aim(needle)
+    local pos = needle and getNeedlePosition(needle)
+    local cam = workspace.CurrentCamera
+
+    refreshNeedleCharacter()
+
+    if not (pos and cam and needleRoot) then
+        return
+    end
+
+    pcall(function()
+        cam.CameraType = Enum.CameraType.Scriptable
+        cam.CFrame = CFrame.lookAt(
+            needleRoot.Position + Vector3.new(0, 2, 0),
+            pos
+        )
+    end)
+end
+
 local function equipTool(tool)
     refreshNeedleCharacter()
 
@@ -1814,101 +1906,241 @@ local function activateTool(
     end
 end
 
+local function throwTntAtNeedle(needle)
+    if not TntAction or not HeldToolState or not needle then
+        return false
+    end
+
+    refreshNeedleCharacter()
+    local root = needleRoot
+    local pos = getNeedlePosition(needle)
+    if not root or not pos then
+        return false
+    end
+
+    local startPosition = root.Position + Vector3.new(0, 3, 0)
+    local directionVector = pos - startPosition
+    if directionVector.Magnitude <= 0 then
+        return false
+    end
+
+    local direction = directionVector.Unit
+    local throwCFrame = CFrame.lookAt(startPosition, startPosition + direction)
+    local velocity = direction * 65
+
+    resetTntState()
+    pcall(function() TntAction:FireServer("light") end)
+    task.wait(0.48)
+    pcall(function() HeldToolState:FireServer("Tnt", "lighting") end)
+    task.wait(0.08)
+    pcall(function() HeldToolState:FireServer("Tnt", "ready") end)
+    task.wait(0.08)
+    pcall(function() HeldToolState:FireServer("Tnt", "charging") end)
+    task.wait(0.18)
+    pcall(function() TntAction:FireServer("throw", throwCFrame, velocity) end)
+    task.wait(0.1)
+    resetTntState()
+    return true
+end
+
 local function useAllToolsOnNeedle()
     local tools = getTools()
 
+    -- Re-read the inventory every pass so newly purchased tools are used
+    -- immediately without restarting Auto Win.
     if tools.hay[1] then
-        activateTool(
-            tools.hay[1],
-            2,
-            0.08
-        )
+        activateTool(tools.hay[1], 2, 0.08)
     end
 
     if tools.pitchfork[1] then
-        activateTool(
-            tools.pitchfork[1],
-            2,
-            0.08
-        )
+        activateTool(tools.pitchfork[1], 3, 0.08)
     end
 
     if tools.vacuum[1] then
-        activateTool(
-            tools.vacuum[1],
-            2,
-            0.08
-        )
+        activateTool(tools.vacuum[1], 3, 0.08)
     end
 
-    if tools.tnt[1] then
-        activateTool(
-            tools.tnt[1],
-            1,
-            0.10
-        )
+    -- TNT: real throw path at the Needle. Works with or without a TNT
+    -- Tool in the bag (Auto TNT never needed one either).
+    local needle = getNeedle()
+
+    if needle and not tntBusy then
+        tntBusy = true
+
+        if tools.tnt[1] then
+            equipTool(tools.tnt[1])
+        end
+
+        pcall(function()
+            throwTntAtNeedle(needle)
+        end)
+
+        if tools.tnt[1] then
+            pcall(function() tools.tnt[1]:Activate() end)
+        end
+
+        tntBusy = false
+        task.wait(0.15)
     end
 end
 
 local function pickNeedleWithTools()
-    local deadline = os.clock() + 4
+    -- Keep sell + dig + tools + TNT going until the Needle is picked.
+    local deadline = os.clock() + 25
+    local lastSell = os.clock()
+    local hadMain = NeedleX.mainNeedle() ~= nil
+    local picked = false
 
-    while needleAuto
-        and getNeedle()
-        and os.clock() < deadline do
+    while needleAuto and os.clock() < deadline do
+        -- Picked = carried, or the real Main.Needle vanished, or no
+        -- Needle object left at all.
+        if NeedleX.carried()
+            or (hadMain and not NeedleX.mainNeedle())
+            or not getNeedle() then
 
+            picked = true
+            break
+        end
+
+        -- Keep the bag empty so the Needle can actually be picked up.
+        if os.clock() - lastSell >= 8 then
+            lastSell = os.clock()
+            pcall(function() sellAndReturnHay() end)
+            while isSellingHay do task.wait(0.05) end
+        end
+
+        -- Look at the Needle so Auto Collect (running in parallel) digs
+        -- the hay around it, and dig the hay closest to it ourselves.
+        NeedleX.aim(getNeedle())
+
+        pcall(function()
+            clearHayNearNeedle(getNeedle())
+        end)
+
+        -- ...then use hay pick + pitchfork + vacuum + TNT on it.
         useAllToolsOnNeedle()
         task.wait(0.1)
     end
 
-    return not getNeedle()
+    return picked
 end
 
 local function handInNeedleToNPC()
-    local npc =
-        workspace:FindFirstChild("NPC")
-        and workspace.NPC:FindFirstChild(
-            "Farmer_NPC"
-        )
+    NeedleX.handing = true
+
+    local npcFolder = workspace:FindFirstChild("NPC")
+    local npc = npcFolder and npcFolder:FindFirstChild("Farmer_NPC")
+
+    local nh = ReplicatedStorage:FindFirstChild("NeedleHaystack")
+        or ReplicatedStorage:WaitForChild("NeedleHaystack", 3)
+
+    local remote = nh
+        and (nh:FindFirstChild("NeedleHandIn")
+            or nh:WaitForChild("NeedleHandIn", 3))
+
+    if not remote then
+        warn("[Needle] NeedleHandIn remote not found")
+    end
+
+    local function npcPosition()
+        if not npc then
+            return nil
+        end
+
+        local pos = getNeedlePosition(npc)
+
+        if not pos then
+            local okPivot, pivot = pcall(function()
+                return npc:GetPivot().Position
+            end)
+
+            pos = okPivot and pivot or nil
+        end
+
+        return pos
+    end
+
+    -- Teleport ON the NPC, stay there and keep handing in until the
+    -- Needle is gone from us (max ~4 seconds).
+    local deadline = os.clock() + 4
+
+    for attempt = 1, 8 do
+        refreshNeedleCharacter()
+
+        local pos = npcPosition()
+
+        if needleRoot and pos then
+            pcall(function()
+                needleRoot.AssemblyLinearVelocity = Vector3.zero
+                needleRoot.CFrame = CFrame.new(
+                    pos + Vector3.new(0, 2, 2),
+                    pos
+                )
+            end)
+        end
+
+        task.wait(0.15)
+
+        if npc and fireproximityprompt then
+            for _, d in ipairs(npc:GetDescendants()) do
+                if d:IsA("ProximityPrompt") then
+                    pcall(function() fireproximityprompt(d) end)
+                end
+            end
+        end
+
+        if remote then
+            pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                else
+                    remote:FireServer()
+                end
+            end)
+        end
+
+        task.wait(0.25)
+
+        -- Delivered once we no longer carry it (needs attempt >= 2 so
+        -- the server had time to answer).
+        if attempt >= 2 and not NeedleX.carried() then
+            break
+        end
+
+        if os.clock() > deadline then
+            break
+        end
+    end
+
+    NeedleX.handing = false
+
+    return true
+end
+
+local function processNeedleInner()
+    local needle = getNeedle()
+
+    -- Needle already picked (carried) but not delivered yet: go give it.
+    if not needle then
+        if NeedleX.carried()
+            and os.clock() - (NeedleX.lastCarriedTrip or 0) > 3 then
+
+            NeedleX.lastCarriedTrip = os.clock()
+            handInNeedleToNPC()
+        end
+
+        return
+    end
 
     refreshNeedleCharacter()
 
-    if npc and needleRoot then
-        local npcPos =
-            getNeedlePosition(npc)
-            or npc:GetPivot().Position
-
-        pcall(function()
-            needleRoot.CFrame = CFrame.new(
-                npcPos + Vector3.new(0, 3, 3),
-                npcPos
-            )
-        end)
-
-        task.wait(0.3)
+    -- Make the inventory empty first (sell all hay) so the Needle fits.
+    pcall(function() sellAndReturnHay() end)
+    while isSellingHay do
+        task.wait(0.05)
     end
 
-    pcall(function()
-        ReplicatedStorage
-            :WaitForChild("NeedleHaystack")
-            :WaitForChild("NeedleHandIn")
-            :FireServer()
-    end)
-end
-
-local function processNeedleObjective()
-    if needleBusy or not needleAuto then
-        return
-    end
-
-    local needle = getNeedle()
-
-    if not needle then
-        return
-    end
-
-    needleBusy = true
-
+    needle = getNeedle() or needle
     refreshNeedleCharacter()
 
     local pos = getNeedlePosition(needle)
@@ -1916,7 +2148,7 @@ local function processNeedleObjective()
     if needleRoot and pos then
         pcall(function()
             needleRoot.CFrame = CFrame.new(
-                pos + Vector3.new(0, 3, 0)
+                pos + Vector3.new(0, 3, 3)
             )
         end)
 
@@ -1926,11 +2158,51 @@ local function processNeedleObjective()
             local picked =
                 pickNeedleWithTools()
 
-            if needleAuto and picked then
+            if needleAuto then
+                -- TP onto the Farmer NPC and give the Needle.
                 handInNeedleToNPC()
+
+                if picked and needleHandedHook then
+                    pcall(needleHandedHook)
+                end
+
                 task.wait(0.5)
             end
         end
+    end
+end
+
+local function processNeedleObjective()
+    if needleBusy or not needleAuto then
+        return
+    end
+
+    -- Only start when there is a Needle on the map or one in our hands.
+    if not getNeedle() and not NeedleX.carried() then
+        return
+    end
+
+    -- needleBusy pauses random TP / hay collect / sell / TNT for the
+    -- whole trip. Always released, even if something errors.
+    needleBusy = true
+
+    local prevCollect = autoCollectHay
+    local cam = workspace.CurrentCamera
+    local prevCamType = cam and cam.CameraType
+
+    -- Auto Collect (hay pick + pitchfork + vacuum) is what picks the
+    -- Needle, so force it on for the trip.
+    autoCollectHay = true
+    refreshHayTools()
+    pcall(function() restartHayVacuum() end)
+
+    pcall(processNeedleInner)
+
+    autoCollectHay = prevCollect
+    NeedleX.handing = false
+
+    if cam and prevCamType then
+        pcall(function() cam.CameraType = prevCamType end)
     end
 
     needleBusy = false
@@ -1970,7 +2242,6 @@ makeToggleWithSub(
 )
 
 -- Shared hay state
-local autoCollectHay = false
 local vacuumStarted = false
 local VacuumAction = nil
 local lastHaySeen = 0
@@ -1978,8 +2249,6 @@ local lastVacuumRefresh = 0
 
 -- 2. Auto Sell Hay
 local autoSellHay = false
-local isSellingHay = false
-local restartHayVacuum
 
 local function readFirstNumber(value)
     if value == nil then
@@ -2013,7 +2282,7 @@ local function readCapacityPair(value)
     return nil, nil
 end
 
-local function sellAndReturnHay()
+sellAndReturnHay = function()
     if isSellingHay then
         return
     end
@@ -2079,7 +2348,9 @@ end
 task.spawn(function()
     while gui and gui.Parent do
         if autoSellHay
-            and not isSellingHay then
+            and not isSellingHay
+            and not needleBusy
+            and not (needleAuto and getNeedle()) then
 
             pcall(function()
                 local playerGui =
@@ -2354,20 +2625,17 @@ makeToggleWithSub(
 
 -- 4. Auto TNT Option
 local autoTNT = false
-local tntBusy = false
 
 local NH =
     ReplicatedStorage:FindFirstChild(
         "NeedleHaystack"
     )
 
-local TntAction = nil
-local HeldToolState = nil
 local PickHay = nil
 local PitchforkDig = nil
 local hayFolder = nil
 
-local function refreshHayTools()
+function refreshHayTools()
     NH =
         ReplicatedStorage:FindFirstChild(
             "NeedleHaystack"
@@ -2406,7 +2674,7 @@ local function refreshHayTools()
     return NH, hayFolder
 end
 
-local function resetTntState()
+function resetTntState()
     if HeldToolState then
         pcall(function()
             HeldToolState:FireServer()
@@ -2601,7 +2869,9 @@ end
 
 task.spawn(function()
     while gui and gui.Parent do
-        if autoTNT then
+        if autoTNT
+            and not needleBusy
+            and not (needleAuto and getNeedle()) then
             if not tntBusy then
                 tntBusy = true
 
@@ -2759,7 +3029,8 @@ end
 
 task.spawn(function()
     while gui and gui.Parent do
-        if autoCollectHay then
+        if autoCollectHay
+            and not NeedleX.handing then
             refreshHayTools()
 
             if not isSellingHay then
@@ -2888,6 +3159,100 @@ task.spawn(function()
         end
     end
 end)
+
+clearHayNearNeedle = function(needle)
+    refreshHayTools()
+
+    local needlePos = getNeedlePosition(needle)
+
+    if not needlePos or not hayFolder or not PickHay then
+        return 0
+    end
+
+    local list = {}
+
+    -- If the Needle itself is a collectable with an id, target it first.
+    for k, v in pairs(needle:GetAttributes()) do
+        if tostring(k):lower():find("hayid", 1, true) then
+            table.insert(list, {
+                id = v,
+                pos = needlePos,
+                distance = -1
+            })
+        end
+    end
+
+    for _, hay in ipairs(hayFolder:GetChildren()) do
+        if hay.Name == "HayPiece" then
+            local id = hay:GetAttribute("HayId")
+            local pos = getHayPosition(hay)
+
+            if id and pos then
+                local d = (pos - needlePos).Magnitude
+
+                if d <= 40 then
+                    table.insert(list, {
+                        id = id,
+                        pos = pos,
+                        distance = d
+                    })
+                end
+            end
+        end
+    end
+
+    if #list == 0 then
+        return 0
+    end
+
+    -- Hay closest to the Needle first.
+    table.sort(list, function(a, b)
+        return a.distance < b.distance
+    end)
+
+    local primary = list[1].id
+    local extra = {}
+    local vacIds = {}
+
+    for i = 2, math.min(#list, 12) do
+        table.insert(extra, list[i].id)
+    end
+
+    for i = 1, math.min(#list, 8) do
+        table.insert(vacIds, list[i].id)
+    end
+
+    pcall(function()
+        PickHay:FireServer(primary, extra)
+    end)
+
+    if PitchforkDig then
+        pcall(function()
+            PitchforkDig:FireServer(primary)
+        end)
+    end
+
+    if VacuumAction then
+        if not vacuumStarted then
+            restartHayVacuum()
+        end
+
+        refreshNeedleCharacter()
+
+        if needleRoot then
+            pcall(function()
+                VacuumAction:FireServer(
+                    "Tick",
+                    needleRoot.Position,
+                    list[1].pos,
+                    vacIds
+                )
+            end)
+        end
+    end
+
+    return #list
+end
 
 makeToggleWithSub(
     combatCard,
@@ -3093,10 +3458,19 @@ combatCard.CanvasSize =
 
 task.spawn(function()
     while gui and gui.Parent do
-        if autoTPHay then
+        if autoTPHay
+            and not isSellingHay
+            and not needleBusy
+            and not (needleAuto and getNeedle()) then
             pcall(function()
                 local target =
                     getRandomHayTarget()
+
+                -- Selling started while picking a target: do not TP away
+                -- from the sell spot. TPs resume right after the sale.
+                if isSellingHay or needleBusy then
+                    return
+                end
 
                 if target
                     and target.position then
@@ -3959,6 +4333,863 @@ LoadingScreen.SetProgress(
     "Visuals button loaded"
 )
 
+
+-- ==========================================================
+-- AUTO WIN
+-- Does the complete Needle/Hay progression automatically.
+-- Needle delivery has priority over the upgrade sequence.
+-- ==========================================================
+local autoWinEnabled = false
+local autoWinRunning = false
+local autoWinRunId = 0
+local AUTO_WIN_MAX_UPGRADE_ATTEMPTS = 50
+local AUTO_WIN_STEP_DELAY = 0.06
+
+local autoWinStatus = label(
+    homeCard,
+    "Auto Win: Idle",
+    12,
+    GRAY,
+    UDim2.fromOffset(16, 264),
+    UDim2.fromOffset(360, 20),
+    Enum.Font.Gotham
+)
+
+local function autoWinSetStatus(textValue)
+    if autoWinStatus and autoWinStatus.Parent then
+        autoWinStatus.Text = "Auto Win: " .. tostring(textValue)
+    end
+end
+
+local function autoWinIsNeedlePresent()
+    return getNeedle() ~= nil
+end
+
+-- ==========================================================
+-- RETIRE COUNTER + ALWAYS-ON BACKGROUND TOOL BUYER
+-- Every delivered Needle counts as one retire. After 8 retires
+-- the tool/upgrade buyer runs in the background forever (until
+-- the GUI is removed), independent of the Auto Win toggle/run.
+-- ==========================================================
+local autoWinFindOwnedTool -- forward declaration (defined below)
+local autoWinBg = {
+    threshold = 8,
+    delay = 0.04,
+    retires = 0,
+    started = false,
+    token = 0,
+}
+
+-- ---------- MONEY DETECTION ----------
+autoWinBg.state = {}
+autoWinBg.buying = false
+autoWinBg.moneyGetter = nil
+autoWinBg.moneySource = nil
+autoWinBg.lastScan = 0
+
+local MONEY_WORDS = { "money", "cash", "coin", "gold", "buck", "dollar", "currency", "balance" }
+local MONEY_SKIP = { "gem", "price", "cost", "sell", "reward", "buy" }
+
+local function nameHas(name, list)
+    name = tostring(name):lower()
+
+    for _, w in ipairs(list) do
+        if name:find(w, 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function autoWinBg.parse(text)
+    if text == nil then
+        return nil
+    end
+
+    text = tostring(text):gsub(",", "")
+
+    local num, suf = text:match("(%d+%.?%d*)%s*([%a]*)")
+    local n = tonumber(num)
+
+    if not n then
+        return nil
+    end
+
+    local map = {
+        k = 1e3, m = 1e6, b = 1e9, t = 1e12, qa = 1e15,
+        qi = 1e18, sx = 1e21, sp = 1e24, oc = 1e27,
+        no = 1e30, dc = 1e33
+    }
+
+    return n * (map[(suf or ""):lower()] or 1)
+end
+
+function autoWinBg.scanMoney()
+    autoWinBg.lastScan = os.clock()
+
+    -- 1) leaderstats
+    local ls = player:FindFirstChild("leaderstats")
+
+    if ls then
+        for _, v in ipairs(ls:GetChildren()) do
+            if v:IsA("ValueBase")
+                and nameHas(v.Name, MONEY_WORDS)
+                and not nameHas(v.Name, MONEY_SKIP) then
+
+                local ok, val = pcall(function() return v.Value end)
+
+                if ok and tonumber(val) then
+                    autoWinBg.moneySource = "leaderstats." .. v.Name
+                    autoWinBg.moneyGetter = function()
+                        return tonumber(v.Value)
+                    end
+                    return true
+                end
+            end
+        end
+    end
+
+    -- 2) player attributes
+    for k, v in pairs(player:GetAttributes()) do
+        if type(v) == "number"
+            and nameHas(k, MONEY_WORDS)
+            and not nameHas(k, MONEY_SKIP) then
+
+            autoWinBg.moneySource = "attribute " .. k
+            autoWinBg.moneyGetter = function()
+                return tonumber(player:GetAttribute(k))
+            end
+            return true
+        end
+    end
+
+    -- 3) on-screen labels (stats UI first, then the whole PlayerGui)
+    local pg = player:FindFirstChild("PlayerGui")
+
+    local function isMoneyLabel(obj)
+        if not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then
+            return false
+        end
+
+        if gui and obj:IsDescendantOf(gui) then
+            return false
+        end
+
+        if not tostring(obj.Text):find("%d") then
+            return false
+        end
+
+        local n1 = obj.Name
+        local n2 = obj.Parent and obj.Parent.Name or ""
+
+        if nameHas(n1, MONEY_SKIP) or nameHas(n2, MONEY_SKIP) then
+            return false
+        end
+
+        return nameHas(n1, MONEY_WORDS) or nameHas(n2, MONEY_WORDS)
+    end
+
+    local roots = {}
+
+    if pg then
+        local stats = pg:FindFirstChild("PlayerStatsUI")
+        if stats then table.insert(roots, stats) end
+        table.insert(roots, pg)
+    end
+
+    for _, root in ipairs(roots) do
+        for _, obj in ipairs(root:GetDescendants()) do
+            if isMoneyLabel(obj) then
+                autoWinBg.moneySource = obj:GetFullName()
+                autoWinBg.moneyGetter = function()
+                    return autoWinBg.parse(obj.Text)
+                end
+                return true
+            end
+        end
+    end
+
+    -- 4) any label whose text starts with "$"
+    if pg then
+        for _, obj in ipairs(pg:GetDescendants()) do
+            if (obj:IsA("TextLabel") or obj:IsA("TextButton"))
+                and not (gui and obj:IsDescendantOf(gui))
+                and tostring(obj.Text):match("^%s*%$%s*%d")
+                and not nameHas(obj.Name, MONEY_SKIP) then
+
+                autoWinBg.moneySource = obj:GetFullName()
+                autoWinBg.moneyGetter = function()
+                    return autoWinBg.parse(obj.Text)
+                end
+                return true
+            end
+        end
+    end
+
+    autoWinBg.moneyGetter = nil
+    autoWinBg.moneySource = nil
+    return false
+end
+
+function autoWinBg.getMoney()
+    if not autoWinBg.moneyGetter
+        and os.clock() - autoWinBg.lastScan >= 4 then
+        pcall(autoWinBg.scanMoney)
+    end
+
+    local g = autoWinBg.moneyGetter
+
+    if not g then
+        return nil
+    end
+
+    local ok, v = pcall(g)
+
+    if ok and type(v) == "number" then
+        return v
+    end
+
+    -- Source label/value was destroyed - rescan next call.
+    autoWinBg.moneyGetter = nil
+    return nil
+end
+
+-- Best effort: a UI row named like the upgrade that shows "MAX".
+function autoWinBg.uiMaxed(id)
+    local pg = player:FindFirstChild("PlayerGui")
+
+    if not pg then
+        return false
+    end
+
+    local want = tostring(id):lower()
+    local found = false
+
+    pcall(function()
+        for _, obj in ipairs(pg:GetDescendants()) do
+            if not (gui and obj:IsDescendantOf(gui))
+                and obj.Name:lower():find(want, 1, true)
+                and not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then
+
+                for _, t in ipairs(obj:GetDescendants()) do
+                    if (t:IsA("TextLabel") or t:IsA("TextButton"))
+                        and tostring(t.Text):lower():match("^%s*max") then
+
+                        found = true
+                        return
+                    end
+                end
+            end
+        end
+    end)
+
+    return found
+end
+
+-- ---------- BUY ONLY WHEN WE HAVE MONEY ----------
+-- Returns true only when a purchase really went through.
+-- Learns each item's price from the money that was spent, and learns a
+-- price lower bound from every failed try, so we never spam buys we
+-- cannot afford.
+function autoWinBg.smartBuy(remote, id)
+    local st = autoWinBg.state[id]
+
+    if not st then
+        st = { need = 0, nextTry = 0, fails = 0 }
+        autoWinBg.state[id] = st
+    end
+
+    if os.clock() < st.nextTry then
+        return false
+    end
+
+    if st.maxedUntil and os.clock() < st.maxedUntil then
+        return false
+    end
+
+    while autoWinBg.buying do
+        task.wait(0.02)
+    end
+
+    autoWinBg.buying = true
+
+    local ok, res = pcall(function()
+        local before = autoWinBg.getMoney()
+
+        if before and before < st.need then
+            st.nextTry = os.clock() + 0.2
+            return false
+        end
+
+        fireBuy(remote, id)
+
+        -- Money unreadable: cannot verify, so fall back to a slow cooldown.
+        if not before then
+            st.nextTry = os.clock() + 1
+            return true
+        end
+
+        local after = before
+        local deadline = os.clock() + 0.6
+
+        while os.clock() < deadline do
+            task.wait(0.05)
+            after = autoWinBg.getMoney() or before
+
+            if after < before then
+                break
+            end
+        end
+
+        if after < before then
+            st.need = before - after
+            st.price = before - after
+            st.fails = 0
+            return true
+        end
+
+        st.fails += 1
+
+        if st.fails == 1 then
+            st.streakMoney = before
+        end
+
+        st.need = before + 1
+        st.nextTry = os.clock() + math.min(1 + st.fails, 5)
+
+        -- Not a money problem -> it is maxed / locked. Detect it fast:
+        --  * the shop UI says MAX for this item, or
+        --  * we can afford 3x the last price we paid and it still fails, or
+        --  * money doubled since the first failure and it still fails, or
+        --  * it was maxed before and fails again.
+        local maxed = autoWinBg.uiMaxed(id)
+            or (st.price and st.fails >= 2 and before >= st.price * 3)
+            or (st.fails >= 3
+                and (st.streakMoney or 0) > 0
+                and before >= st.streakMoney * 2)
+            or (st.everMaxed and st.fails >= 1)
+            or st.fails >= 10
+
+        if maxed then
+            st.everMaxed = true
+            st.maxedUntil = os.clock() + 90
+            st.fails = 0
+            st.need = 0
+        end
+
+        return false
+    end)
+
+    autoWinBg.buying = false
+
+    return ok and res == true
+end
+
+-- Money readout in the Home tab.
+autoWinBg.moneyLabel = label(
+    homeCard,
+    "Money: scanning...",
+    12,
+    GRAY,
+    UDim2.fromOffset(16, 286),
+    UDim2.fromOffset(390, 20),
+    Enum.Font.Gotham
+)
+
+task.spawn(function()
+    while gui and gui.Parent do
+        local m = autoWinBg.getMoney()
+
+        if autoWinBg.moneyLabel and autoWinBg.moneyLabel.Parent then
+            if m then
+                autoWinBg.moneyLabel.Text =
+                    "Money: " .. string.format("%d", math.floor(m))
+                    .. "  |  " .. tostring(autoWinBg.status or "idle")
+            else
+                autoWinBg.moneyLabel.Text =
+                    "Money: not found - buying slowly"
+            end
+        end
+
+        task.wait(0.5)
+    end
+end)
+
+-- ---------- ORDERED BUY PLAN (wait for money, never skip ahead) ----------
+-- Same idea as "Hand Grab x2": check money -> buy if we can, otherwise
+-- wait until money increases, then continue with the next step.
+autoWinBg.plan = {
+    { "up",   "Grab",        2 },
+    { "shop", "Pitchfork" },
+    { "up",   "Pitchfork",   2 },
+    { "shop", "Tnt" },
+    { "up",   "Capacity",    3 },
+    { "up",   "TntPower",    "max" },
+    { "up",   "TntCooldown", 2 },
+    { "shop", "Vacuum" },
+    { "up",   "Grab",        "max" },   -- max Hand Grab
+    { "up",   "Pitchfork",   "max" },   -- max Pitchfork Grab
+    { "up",   "VacuumPower", "max" },   -- max Vacuum Power
+    { "up",   "Speed",       "max" },   -- max Hand Speed
+    { "up",   "DroneSpeed",  "max" },   -- max Drone Speed
+    -- everything left over is bought after this (see start()).
+}
+
+function autoWinBg.active()
+    return autoWinEnabled
+        or autoWinBg.retires >= autoWinBg.threshold
+end
+
+-- Waits for money, then buys once. Returns true if bought, false when the
+-- item is owned/maxed or the buyer was stopped.
+function autoWinBg.waitBuy(token, remote, id, isShop)
+    while gui and gui.Parent
+        and token == autoWinBg.token
+        and autoWinBg.active() do
+
+        if isShop and autoWinFindOwnedTool(id) then
+            return false
+        end
+
+        local st = autoWinBg.state[id]
+
+        if st and st.maxedUntil and os.clock() < st.maxedUntil then
+            return false
+        end
+
+        if autoWinBg.smartBuy(remote, id) then
+            return true
+        end
+
+        task.wait(0.15)
+    end
+
+    return false
+end
+
+function autoWinBg.buyMax(token, id)
+    local c = 0
+
+    while c < AUTO_WIN_MAX_UPGRADE_ATTEMPTS
+        and autoWinBg.waitBuy(token, BuyUpgradeRemote, id, false) do
+
+        c += 1
+        task.wait(autoWinBg.delay)
+    end
+end
+
+function autoWinBg.start()
+    if autoWinBg.started then
+        return
+    end
+
+    autoWinBg.started = true
+    autoWinBg.token += 1
+
+    local token = autoWinBg.token
+
+    task.spawn(function()
+        while gui and gui.Parent
+            and token == autoWinBg.token
+            and autoWinBg.active() do
+
+            pcall(function()
+                for _, step in ipairs(autoWinBg.plan) do
+                    local kind, id, n = step[1], step[2], step[3]
+
+                    if token ~= autoWinBg.token
+                        or not autoWinBg.active() then
+                        return
+                    end
+
+                    if kind == "shop" then
+                        if not autoWinFindOwnedTool(id) then
+                            autoWinBg.status = "Waiting money: " .. id
+                            autoWinBg.waitBuy(token, BuyShopRemote, id, true)
+                        end
+                    elseif n == "max" then
+                        autoWinBg.status = "Max " .. id
+                        autoWinBg.buyMax(token, id)
+                    else
+                        autoWinBg.status = id .. " x" .. tostring(n)
+
+                        for _ = 1, n do
+                            if not autoWinBg.waitBuy(
+                                token, BuyUpgradeRemote, id, false
+                            ) then
+                                break
+                            end
+
+                            task.wait(autoWinBg.delay)
+                        end
+                    end
+                end
+
+                -- Everything else, in the order of the upgrade groups.
+                for _, group in ipairs(upgradeGroups) do
+                    for _, item in ipairs(group.items) do
+                        if token ~= autoWinBg.token
+                            or not autoWinBg.active() then
+                            return
+                        end
+
+                        autoWinBg.status = "Max " .. tostring(item[1])
+                        autoWinBg.buyMax(token, item[2])
+                    end
+                end
+
+                autoWinBg.status = "All bought"
+            end)
+
+            task.wait(3)
+        end
+
+        if token == autoWinBg.token then
+            autoWinBg.started = false
+        end
+    end)
+end
+
+function autoWinBg.registerRetire()
+    autoWinBg.retires += 1
+
+    -- A retire may reset upgrades/tools: forget learned prices and
+    -- "maxed" flags so the plan checks everything again.
+    autoWinBg.state = {}
+
+    if autoWinBg.retires >= autoWinBg.threshold then
+        autoWinBg.start()
+    end
+end
+
+needleHandedHook = function()
+    autoWinBg.registerRetire()
+end
+
+local function autoWinHandleNeedle(runId)
+    if not autoWinEnabled or runId ~= autoWinRunId then
+        return false
+    end
+
+    if not autoWinIsNeedlePresent() then
+        return false
+    end
+
+    autoWinSetStatus("Needle found - delivering")
+
+    -- Needle is the main objective. Stop hay-side automation from
+    -- competing for the character while the needle is handled.
+    needleAuto = true
+
+    pcall(function()
+        processNeedleObjective()
+    end)
+
+    local deadline = os.clock() + 10
+
+    while autoWinEnabled
+        and runId == autoWinRunId
+        and autoWinIsNeedlePresent()
+        and os.clock() < deadline do
+
+        -- A direct retry keeps delivery reliable even if the normal
+        -- needle worker was between iterations when the needle appeared.
+        pcall(function()
+            processNeedleObjective()
+        end)
+
+        task.wait(0.2)
+    end
+
+    if autoWinEnabled and runId == autoWinRunId then
+        if autoWinIsNeedlePresent() then
+            autoWinSetStatus("Needle still present - retrying")
+            return false
+        end
+
+        autoWinSetStatus("Needle delivered")
+        return true
+    end
+
+    return false
+end
+
+local function autoWinCheckPriority(runId)
+    if not autoWinEnabled or runId ~= autoWinRunId then
+        return true
+    end
+
+    if autoWinIsNeedlePresent() then
+        -- Returning true means the main objective was completed and the
+        -- remaining upgrade sequence should not delay the win.
+        if autoWinHandleNeedle(runId) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function autoWinBuyUpgrade(id, count, runId)
+    count = count or 1
+
+    for _ = 1, count do
+        local deadline = os.clock() + 20
+        local bought = false
+
+        while not bought and os.clock() < deadline do
+            if not autoWinEnabled or runId ~= autoWinRunId then
+                return false
+            end
+
+            if autoWinCheckPriority(runId) then
+                return true
+            end
+
+            bought = autoWinBg.smartBuy(BuyUpgradeRemote, id)
+
+            if not bought then
+                task.wait(0.15)
+            end
+        end
+
+        if bought then
+            task.wait(AUTO_WIN_STEP_DELAY)
+        end
+    end
+
+    return false
+end
+
+function autoWinFindOwnedTool(id)
+    -- The game can keep purchased tools in different containers and they
+    -- are not always direct children of Backpack/Character. Search
+    -- recursively so an already-owned item never causes an infinite buy loop.
+    local wanted = tostring(id):lower()
+
+    local function matches(name)
+        name = tostring(name):lower()
+
+        if wanted == "pitchfork" then
+            return name:find("pitchfork", 1, true) ~= nil
+                or name:find("fork", 1, true) ~= nil
+        elseif wanted == "tnt" then
+            return name:find("tnt", 1, true) ~= nil
+        elseif wanted == "vacuum" then
+            return name:find("vacuum", 1, true) ~= nil
+        end
+
+        return name == wanted or name:find(wanted, 1, true) ~= nil
+    end
+
+    local function scan(container)
+        if not container then
+            return nil
+        end
+
+        for _, obj in ipairs(container:GetDescendants()) do
+            if obj:IsA("Tool") and matches(obj.Name) then
+                return obj
+            end
+        end
+
+        -- Also handle a container that itself is the Tool.
+        if container:IsA("Tool") and matches(container.Name) then
+            return container
+        end
+
+        return nil
+    end
+
+    local char = player.Character
+    local backpack = player:FindFirstChildOfClass("Backpack")
+    local starterGear = player:FindFirstChild("StarterGear")
+
+    -- Character first because an equipped item is considered owned too.
+    return scan(char)
+        or scan(backpack)
+        or scan(starterGear)
+end
+
+local function autoWinBuyShopItem(id, runId)
+    if not autoWinEnabled or runId ~= autoWinRunId then
+        return false
+    end
+
+    -- First, ALWAYS check whether it is already owned.
+    local owned = autoWinFindOwnedTool(id)
+    if owned then
+        autoWinSetStatus(tostring(id) .. " already owned")
+        return false
+    end
+
+    -- Retry the purchase, but never wait forever. Some games do not expose
+    -- ownership as a Tool immediately, even though the purchase succeeded.
+    -- After the attempts, continue the Auto Win sequence and let the tool
+    -- scanner pick it up when it appears.
+    local maxAttempts = 40
+
+    for attempt = 1, maxAttempts do
+        if not autoWinEnabled or runId ~= autoWinRunId then
+            return false
+        end
+
+        if autoWinCheckPriority(runId) then
+            return true
+        end
+
+        owned = autoWinFindOwnedTool(id)
+        if owned then
+            autoWinSetStatus(tostring(id) .. " owned")
+            return false
+        end
+
+        autoWinSetStatus("Buying " .. tostring(id) .. " (" .. tostring(attempt) .. "/" .. tostring(maxAttempts) .. ")")
+        autoWinBg.smartBuy(BuyShopRemote, id)
+
+        local deadline = os.clock() + 0.5
+        while os.clock() < deadline do
+            task.wait(0.1)
+
+            owned = autoWinFindOwnedTool(id)
+            if owned then
+                autoWinSetStatus(tostring(id) .. " owned")
+                return false
+            end
+
+            if autoWinCheckPriority(runId) then
+                return true
+            end
+        end
+    end
+
+    -- Do not get stuck here. The server may have accepted the purchase even
+    -- if no Tool instance is visible yet.
+    autoWinSetStatus(tostring(id) .. " purchase sent - continuing")
+    task.wait(0.25)
+    return false
+end
+
+local function autoWinMaxUpgrade(id, runId, statusText)
+    autoWinSetStatus(statusText)
+
+    local count = 0
+    local idleDeadline = os.clock() + 8
+
+    while count < AUTO_WIN_MAX_UPGRADE_ATTEMPTS
+        and os.clock() < idleDeadline do
+
+        if not autoWinEnabled or runId ~= autoWinRunId then
+            return false
+        end
+
+        if autoWinCheckPriority(runId) then
+            return true
+        end
+
+        if autoWinBg.smartBuy(BuyUpgradeRemote, id) then
+            count += 1
+            idleDeadline = os.clock() + 8
+            task.wait(AUTO_WIN_STEP_DELAY)
+        else
+            task.wait(0.15)
+        end
+    end
+
+    return false
+end
+
+local function stopAutoWinWorkers()
+    if vacuumStarted and VacuumAction then
+        pcall(function()
+            VacuumAction:FireServer("Stop")
+        end)
+        vacuumStarted = false
+    end
+
+    needleAuto = false
+    autoSellHay = false
+    autoTNT = false
+    autoCollectHay = false
+    autoTPHay = false
+    tntBusy = false
+    lastTPHayTarget = nil
+
+    resetTntState()
+end
+
+local function runAutoWin(runId)
+    if autoWinRunning then
+        return
+    end
+
+    autoWinRunning = true
+
+    -- These stay active for the whole run unless the needle has priority.
+    needleAuto = true
+    autoSellHay = true
+    autoCollectHay = true
+    autoTPHay = true
+    autoTNT = true
+
+    refreshHayTools()
+    restartHayVacuum()
+    startAutoNeedleLoop()
+
+    -- Tools + upgrades are bought in the background from the very start.
+    autoWinBg.start()
+
+    autoWinSetStatus("Running - buying in background")
+
+    -- Buying follows the ordered money plan in the background; this loop
+    -- only makes sure the Needle gets delivered, again and again.
+    while autoWinEnabled and runId == autoWinRunId do
+        if autoWinIsNeedlePresent() then
+            if autoWinHandleNeedle(runId) then
+                autoWinSetStatus("Needle delivered - waiting for next")
+            end
+        end
+
+        task.wait(0.25)
+    end
+
+    autoWinRunning = false
+
+    if autoWinEnabled and runId == autoWinRunId then
+        autoWinSetStatus("Needle delivered - complete")
+    else
+        autoWinSetStatus("Stopped")
+    end
+end
+
+makeToggleWithSub(
+    homeCard,
+    "Auto Win",
+    "Do everything auto",
+    214,
+    function(on)
+        autoWinEnabled = on
+        autoWinRunId += 1
+
+        local runId = autoWinRunId
+
+        if on then
+            autoWinSetStatus("Starting")
+
+            task.spawn(function()
+                pcall(function()
+                    runAutoWin(runId)
+                end)
+            end)
+        else
+            stopAutoWinWorkers()
+            autoWinRunning = false
+            autoWinSetStatus("Stopped")
+        end
+    end
+)
+
 -- ===== Player page =====
 local playerPage, playerCard =
     makePage(
@@ -4272,6 +5503,10 @@ removeGuiBtn.Parent = settingsCard
 corner(removeGuiBtn, 8)
 
 removeGuiBtn.MouseButton1Click:Connect(function()
+    autoWinEnabled = false
+    autoWinRunId += 1
+    autoWinRunning = false
+
     needleAuto = false
     autoSellHay = false
     autoPickGems = false
