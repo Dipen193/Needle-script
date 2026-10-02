@@ -25,6 +25,26 @@ local circleRadius = 28
 local circleLookAhead = 0.35
 
 --========================================================
+-- ZEUS BOSS SETTINGS
+--========================================================
+
+local ZEUS_ARENA_CENTER = circleCenter
+local ZEUS_ARENA_RADIUS = 75
+local ZEUS_FUEL_RADIUS = 75
+local FUEL_PICKUP_DISTANCE = 7
+
+local attackDangerRadius = 38
+local dodgeDistance = 24
+local dodgeTime = 0.75
+local dodgeCooldown = 1.0
+
+local zeusAttackActive = false
+local zeusAttackUntil = 0
+local lastDodge = 0
+local bossStatus = "OFF"
+local statusLabel = nil
+
+--========================================================
 -- STATE
 --========================================================
 
@@ -101,7 +121,7 @@ task.spawn(function()
     while true do
         task.wait(0.5)
 
-        if autoMoneyFarm then
+        if autoMoneyFarm or bossFarm then
             pcall(function()
 
                 local car = getCar()
@@ -110,7 +130,8 @@ task.spawn(function()
 
                     local fuel = car:GetAttribute("Fuel")
 
-                    if typeof(fuel) == "number"
+                    if autoMoneyFarm
+                        and typeof(fuel) == "number"
                         and fuel < 4
                         and not cycleBusy then
 
@@ -147,7 +168,7 @@ task.spawn(function()
     while true do
         task.wait(0.3)
 
-        if autoMoneyFarm then
+        if autoMoneyFarm or bossFarm then
             pcall(function()
 
                 Packets.SetTurbo:Fire(true)
@@ -427,8 +448,432 @@ local function driveCircle(car, dt)
 end
 
 --========================================================
+-- ZEUS BOSS HELPERS
+--========================================================
+
+local function flatDistance(a, b)
+    local dx = a.X - b.X
+    local dz = a.Z - b.Z
+    return math.sqrt(dx * dx + dz * dz)
+end
+
+local function getZeus()
+    local bosses = workspace:FindFirstChild("ClientBosses")
+    if not bosses then
+        return nil
+    end
+
+    local zeus = bosses:FindFirstChild("ZeusBoss")
+    if zeus and zeus:IsA("Model") then
+        return zeus
+    end
+
+    return nil
+end
+
+local function getModelPosition(model)
+    if not model then
+        return nil
+    end
+
+    if model:IsA("BasePart") then
+        return model.Position
+    end
+
+    if model:IsA("Model") then
+        if model.PrimaryPart then
+            return model.PrimaryPart.Position
+        end
+
+        local root = model:FindFirstChild("HumanoidRootPart", true)
+        if root and root:IsA("BasePart") then
+            return root.Position
+        end
+
+        local part = model:FindFirstChildWhichIsA("BasePart", true)
+        if part then
+            return part.Position
+        end
+    end
+
+    return nil
+end
+
+-- IMPORTANT:
+-- Only ClientBosses.RefillFuel is considered valid Zeus fuel.
+-- Generic FuelBarrel / ProFuel objects elsewhere are ignored.
+local function getZeusFuel()
+    local bosses = workspace:FindFirstChild("ClientBosses")
+    if not bosses then
+        return nil
+    end
+
+    local refill = bosses:FindFirstChild("RefillFuel")
+    if not refill then
+        return nil
+    end
+
+    local fuelModel = refill:FindFirstChild("FuelModel")
+    if fuelModel then
+        return fuelModel
+    end
+
+    -- Fallback only if the game temporarily replaces FuelModel
+    -- with a BasePart directly under RefillFuel.
+    if refill:IsA("BasePart") then
+        return refill
+    end
+
+    return nil
+end
+
+local function getFuelPosition()
+    local fuel = getZeusFuel()
+    local pos = getModelPosition(fuel)
+
+    if not pos then
+        return nil, nil
+    end
+
+    if flatDistance(pos, ZEUS_ARENA_CENTER) > ZEUS_FUEL_RADIUS then
+        return nil, nil
+    end
+
+    return fuel, pos
+end
+
+local function isInsideZeusArena(position)
+    return flatDistance(position, ZEUS_ARENA_CENTER) <= ZEUS_ARENA_RADIUS
+end
+
+local function setBossStatus(value)
+    bossStatus = value
+
+    if statusLabel and statusLabel.Parent then
+        statusLabel.Text = "STATUS: " .. value
+    end
+end
+
+local function getCarSpeed(car)
+    local top = car:GetAttribute("TopSpeed")
+
+    if typeof(top) ~= "number" then
+        top = serverTop or 60
+    end
+
+    return math.min(top * 1.3, 135)
+end
+
+local function driveTowardPosition(car, targetPosition, speedMultiplier)
+    local ch = car and car.PrimaryPart
+    if not ch then
+        return false
+    end
+
+    local pos = ch.Position
+    local target = getGroundPosition(targetPosition, car)
+
+    local to = target - pos
+    local horizontal = Vector3.new(to.X, 0, to.Z)
+
+    if horizontal.Magnitude < 0.1 then
+        return true
+    end
+
+    local speed = getCarSpeed(car) * (speedMultiplier or 1)
+
+    local vel = ch.AssemblyLinearVelocity
+    local horizontalVel = Vector3.new(vel.X, 0, vel.Z)
+
+    local desired = horizontal.Unit * speed
+
+    -- Smooth turns so the car does not make violent direction changes.
+    if horizontalVel.Magnitude > 2 then
+        local alignment = horizontalVel.Unit:Dot(horizontal.Unit)
+
+        if alignment < 0.15 then
+            desired = horizontalVel * 0.78
+        else
+            desired = horizontalVel:Lerp(desired, 0.22)
+        end
+    end
+
+    local vertical = math.clamp(to.Y * 2, -40, 25)
+
+    ch.AssemblyLinearVelocity = Vector3.new(
+        desired.X,
+        vertical,
+        desired.Z
+    )
+
+    return false
+end
+
+local function stopCar(car)
+    local ch = car and car.PrimaryPart
+    if not ch then
+        return
+    end
+
+    local v = ch.AssemblyLinearVelocity
+
+    ch.AssemblyLinearVelocity = Vector3.new(
+        v.X * 0.65,
+        v.Y,
+        v.Z * 0.65
+    )
+end
+
+-- Keep the dodge inside the same Zeus arena.
+-- We never use "directly away from Zeus" without clamping the destination.
+local function getSafeDodgePoint(car, zeus)
+    local ch = car and car.PrimaryPart
+    local bossPos = getModelPosition(zeus)
+
+    if not ch or not bossPos then
+        return ZEUS_ARENA_CENTER
+    end
+
+    local carPos = ch.Position
+    local away = Vector3.new(
+        carPos.X - bossPos.X,
+        0,
+        carPos.Z - bossPos.Z
+    )
+
+    if away.Magnitude < 0.1 then
+        away = Vector3.new(1, 0, 0)
+    end
+
+    away = away.Unit
+
+    local desired = carPos + away * dodgeDistance
+
+    local fromCenter = Vector3.new(
+        desired.X - ZEUS_ARENA_CENTER.X,
+        0,
+        desired.Z - ZEUS_ARENA_CENTER.Z
+    )
+
+    -- Leave a safety margin from the arena boundary.
+    local maxRadius = math.max(ZEUS_ARENA_RADIUS - 8, 1)
+
+    if fromCenter.Magnitude > maxRadius then
+        fromCenter = fromCenter.Unit * maxRadius
+    end
+
+    return Vector3.new(
+        ZEUS_ARENA_CENTER.X + fromCenter.X,
+        desired.Y,
+        ZEUS_ARENA_CENTER.Z + fromCenter.Z
+    )
+end
+
+-- Attack monitor:
+-- We watch only ClientBosses instead of scanning the entire Workspace
+-- every physics frame. The exact runtime VFX names are game-dependent,
+-- so these are treated as candidate attack effects.
+local attackNames = {
+    ThunderstormStrike = true,
+    LightningSpearBlast = true,
+    LightningSpearScorch = true,
+    OlympusSlamImpact = true,
+    BoltDrawStrike = true,
+    IntroLandingStrike = true,
+    MinionSpawnStrike = true,
+    ThunderstormVFX = true,
+    LightningSpearVFX = true,
+    OlympusSlamVFX = true,
+    SummonVFX = true,
+}
+
+local function markPossibleZeusAttack(obj)
+    if not bossFarm then
+        return
+    end
+
+    if not obj then
+        return
+    end
+
+    if attackNames[obj.Name] then
+        zeusAttackActive = true
+        zeusAttackUntil = math.max(
+            zeusAttackUntil,
+            tick() + dodgeTime
+        )
+    end
+end
+
+local function attachZeusMonitor()
+    local bosses = workspace:FindFirstChild("ClientBosses")
+    if not bosses then
+        return
+    end
+
+    -- Only one monitor connection is needed.
+    if bosses:GetAttribute("_BK_ZeusMonitor") then
+        return
+    end
+
+    bosses:SetAttribute("_BK_ZeusMonitor", true)
+
+    bosses.DescendantAdded:Connect(function(obj)
+        markPossibleZeusAttack(obj)
+    end)
+end
+
+attachZeusMonitor()
+
+workspace.ChildAdded:Connect(function(obj)
+    if obj.Name == "ClientBosses" then
+        task.defer(attachZeusMonitor)
+    end
+end)
+
+local function driveBackIntoArena(car)
+    local ch = car and car.PrimaryPart
+    if not ch then
+        return
+    end
+
+    local pos = ch.Position
+    local offset = Vector3.new(
+        pos.X - ZEUS_ARENA_CENTER.X,
+        0,
+        pos.Z - ZEUS_ARENA_CENTER.Z
+    )
+
+    if offset.Magnitude < 0.1 then
+        driveTowardPosition(car, ZEUS_ARENA_CENTER, 0.7)
+        return
+    end
+
+    local safeRadius = math.max(ZEUS_ARENA_RADIUS - 12, 1)
+
+    if offset.Magnitude > safeRadius then
+        local targetOffset = offset.Unit * safeRadius
+        local target = Vector3.new(
+            ZEUS_ARENA_CENTER.X + targetOffset.X,
+            pos.Y,
+            ZEUS_ARENA_CENTER.Z + targetOffset.Z
+        )
+
+        setBossStatus("RETURNING")
+        driveTowardPosition(car, target, 0.75)
+    end
+end
+
+local function runZeusBossDrive(car, dt)
+    local zeus = getZeus()
+
+    if not zeus then
+        setBossStatus("WAITING FOR ZEUS")
+        -- Do not wander while Zeus is absent.
+        stopCar(car)
+        return
+    end
+
+    local carPos = car.PrimaryPart.Position
+
+    -- Hard arena safety check comes first.
+    if not isInsideZeusArena(carPos) then
+        driveBackIntoArena(car)
+        return
+    end
+
+    -- Candidate attack detected.
+    if zeusAttackActive and tick() <= zeusAttackUntil then
+        if tick() - lastDodge >= dodgeCooldown then
+            lastDodge = tick()
+        end
+
+        setBossStatus("DODGE")
+        local dodgePoint = getSafeDodgePoint(car, zeus)
+        driveTowardPosition(car, dodgePoint, 0.95)
+        return
+    end
+
+    if tick() > zeusAttackUntil then
+        zeusAttackActive = false
+    end
+
+    -- FUEL ALWAYS HAS PRIORITY over circling.
+    local fuel, fuelPos = getFuelPosition()
+
+    if fuel and fuelPos then
+        local distance = flatDistance(carPos, fuelPos)
+
+        if distance <= FUEL_PICKUP_DISTANCE then
+            setBossStatus("FUEL PICKUP")
+            stopCar(car)
+        else
+            setBossStatus("FUEL")
+            driveTowardPosition(car, fuelPos, 0.9)
+        end
+
+        return
+    end
+
+    -- No fuel target: stay in the Zeus arena and circle.
+    setBossStatus("CIRCLE")
+    driveCircle(car, dt)
+end
+
+--========================================================
 -- VEHICLE PHYSICS LOOP
 --========================================================
+
+RunService.PostSimulation:Connect(function(dt)
+
+    if bossFarm then
+
+        local car = getCar()
+
+        if not car then
+            setBossStatus("NO CAR")
+            return
+        end
+
+        if not car.PrimaryPart then
+            setBossStatus("CAR LOADING")
+            return
+        end
+
+        if not serverTop then
+            serverTop = car:GetAttribute("TopSpeed")
+        end
+
+        applyNoclip()
+
+        runZeusBossDrive(car, dt)
+
+        return
+    end
+
+    if not autoMoneyFarm then
+        return
+    end
+
+    applyNoclip()
+
+    local car = getCar()
+
+    if not car then
+        return
+    end
+
+    if not car.PrimaryPart then
+        return
+    end
+
+    if not serverTop then
+        serverTop = car:GetAttribute("TopSpeed")
+    end
+
+    driveForward(car)
+end)
+
 
 RunService.PostSimulation:Connect(function(dt)
 
@@ -603,7 +1048,7 @@ main.Position =
         0.5,
         -150,
         0.5,
-        -145
+        -167
     )
 
 main.BackgroundColor3 =
@@ -928,7 +1373,13 @@ bossButton.MouseButton1Click:Connect(function()
     bossFarm =
         not bossFarm
 
+    zeusAttackActive = false
+    zeusAttackUntil = 0
+
     if bossFarm then
+
+        setBossStatus("STARTING")
+        attachZeusMonitor()
 
         local car = getCar()
 
@@ -948,6 +1399,8 @@ bossButton.MouseButton1Click:Connect(function()
                     )
             end
         end
+    else
+        setBossStatus("OFF")
     end
 
     updateBossButton()
@@ -992,6 +1445,22 @@ antiAFKButton.MouseButton1Click:Connect(function()
 end)
 
 --========================================================
+-- BOSS STATUS
+--========================================================
+
+statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "BossStatus"
+statusLabel.BackgroundTransparency = 1
+statusLabel.Size = UDim2.new(1, -30, 0, 28)
+statusLabel.Position = UDim2.new(0, 15, 0, 220)
+statusLabel.Text = "STATUS: OFF"
+statusLabel.TextColor3 = COLOR_TEXT
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 13
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = main
+
+--========================================================
 -- RADIUS SECTION
 --========================================================
 
@@ -1014,7 +1483,7 @@ radiusText.Position =
         0,
         15,
         0,
-        228
+        265
     )
 
 radiusText.Text =
@@ -1054,7 +1523,7 @@ radiusValue.Position =
         0,
         75,
         0,
-        228
+        265
     )
 
 radiusValue.Text =
@@ -1092,7 +1561,7 @@ minusButton.Position =
         1,
         -125,
         0,
-        229
+        266
     )
 
 minusButton.BackgroundColor3 =
@@ -1162,7 +1631,7 @@ plusButton.Position =
         1,
         -65,
         0,
-        229
+        266
     )
 
 plusButton.BackgroundColor3 =
@@ -1239,6 +1708,7 @@ end)
 updateAutoButton()
 updateBossButton()
 updateAntiAFKButton()
+setBossStatus("OFF")
 
 print(
     "[BUILD&KILL ZOMBIE] Loaded"
@@ -1247,4 +1717,11 @@ print(
 print(
     "[BUILD&KILL ZOMBIE] Radius:",
     circleRadius
+)
+
+print(
+    "[BUILD&KILL ZOMBIE] Zeus arena:",
+    ZEUS_ARENA_RADIUS,
+    "Fuel:",
+    "ClientBosses.RefillFuel.FuelModel"
 )
