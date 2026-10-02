@@ -10,7 +10,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- ===== Settings =====
-local TITLE = "KIWIN HUB"
+local TITLE = "KIWIN"
 local SUBTITLE = "https://discord.gg/xXZStK2WZ"
 local CREDIT = "DIPEN"
 
@@ -2517,8 +2517,12 @@ task.spawn(function()
                     return
                 end
 
-                -- Never sell twice within 3 seconds.
-                if os.clock() - NeedleX.lastSell < 3 then
+                -- Minimum gap between auto sells: 3s normally, 10s once
+                -- this player turned out to have an "always full" bag
+                -- (infinite capacity reads).
+                local gap = NeedleX.timedOnly and NeedleX.sellEvery or 3
+
+                if os.clock() - NeedleX.lastSell < gap then
                     return
                 end
 
@@ -2527,6 +2531,19 @@ task.spawn(function()
                     and maximum > 0
                     and maximum < 1e9
                     and current >= maximum then
+
+                    -- "Full" again within 10s of the last sale twice in a
+                    -- row = the bag never really fills (infinite capacity):
+                    -- from now on only sell every 10 seconds.
+                    if os.clock() - NeedleX.lastSell < NeedleX.sellEvery then
+                        NeedleX.fastRepeats = (NeedleX.fastRepeats or 0) + 1
+
+                        if NeedleX.fastRepeats >= 2 then
+                            NeedleX.timedOnly = true
+                        end
+                    else
+                        NeedleX.fastRepeats = 0
+                    end
 
                     sellAndReturnHay()
                     return
