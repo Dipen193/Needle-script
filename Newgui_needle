@@ -1576,7 +1576,11 @@ local HeldToolState = nil
 local sellAndReturnHay
 local clearHayNearNeedle
 local needleHandedHook = nil
-local NeedleX = {}
+local NeedleX = {
+    pitchforkInterval = 0.25, -- seconds between pitchfork digs
+    sellEvery = 10,           -- timed sell when capacity is infinite
+    lastSell = 0,
+}
 local tntBusy = false
 local autoCollectHay = false
 local restartHayVacuum
@@ -2288,6 +2292,7 @@ sellAndReturnHay = function()
     end
 
     isSellingHay = true
+    NeedleX.lastSell = os.clock()
 
     if vacuumStarted and VacuumAction then
         pcall(function()
@@ -2492,6 +2497,27 @@ task.spawn(function()
                     and current >= maximum then
 
                     sellAndReturnHay()
+                else
+                    -- Infinite capacity (shows "inf", a huge number, or no
+                    -- readable maximum): the bag never fills, so sell on
+                    -- a timer instead.
+                    local mt = tostring(maxText or ""):lower()
+                    local ct = tostring(currentText or ""):lower()
+
+                    local infinite =
+                        mt:find("inf", 1, true)
+                        or mt:find("\226\136\158", 1, true)
+                        or ct:find("inf", 1, true)
+                        or ct:find("\226\136\158", 1, true)
+                        or not maximum
+                        or maximum >= 1e9
+
+                    if infinite
+                        and os.clock() - NeedleX.lastSell
+                            >= NeedleX.sellEvery then
+
+                        sellAndReturnHay()
+                    end
                 end
             end)
         end
@@ -3116,13 +3142,21 @@ task.spawn(function()
 
                     if os.clock()
                         - lastPitchfork
-                        >= 0.85 then
+                        >= NeedleX.pitchforkInterval then
 
                         lastPitchfork = os.clock()
 
+                        -- Rotate through the nearby hay so the pitchfork
+                        -- does not dig the same piece the hand is taking.
+                        NeedleX.pfIndex = (NeedleX.pfIndex or 0) % #pickIds + 1
+
+                        local pitchforkId =
+                            pickIds[NeedleX.pfIndex]
+                            or primaryId
+
                         pcall(function()
                             PitchforkDig:FireServer(
-                                primaryId
+                                pitchforkId
                             )
                         end)
                     end
