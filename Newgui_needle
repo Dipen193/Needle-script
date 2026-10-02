@@ -2009,7 +2009,7 @@ local function pickNeedleWithTools()
         -- Keep the bag empty so the Needle can actually be picked up.
         if os.clock() - lastSell >= 8 then
             lastSell = os.clock()
-            pcall(function() sellAndReturnHay() end)
+            pcall(NeedleX.sellIfHay)
             while isSellingHay do task.wait(0.05) end
         end
 
@@ -2139,7 +2139,7 @@ local function processNeedleInner()
     refreshNeedleCharacter()
 
     -- Make the inventory empty first (sell all hay) so the Needle fits.
-    pcall(function() sellAndReturnHay() end)
+    pcall(NeedleX.sellIfHay)
     while isSellingHay do
         task.wait(0.05)
     end
@@ -2350,15 +2350,8 @@ sellAndReturnHay = function()
     isSellingHay = false
 end
 
-task.spawn(function()
-    while gui and gui.Parent do
-        if autoSellHay
-            and not isSellingHay
-            and not needleBusy
-            and not (needleAuto and getNeedle()) then
-
-            pcall(function()
-                local playerGui =
+function NeedleX.readBag()
+local playerGui =
                     player:FindFirstChild(
                         "PlayerGui"
                     )
@@ -2491,33 +2484,74 @@ task.spawn(function()
                     end
                 end
 
+    return current, maximum, currentText, maxText
+end
+
+-- Sell only when there is hay to sell (no pointless TP with an empty bag).
+function NeedleX.sellIfHay()
+    local ok, cur = pcall(function()
+        local c = NeedleX.readBag()
+        return c
+    end)
+
+    if ok and cur ~= nil and cur <= 0 then
+        return
+    end
+
+    sellAndReturnHay()
+end
+
+task.spawn(function()
+    while gui and gui.Parent do
+        if autoSellHay
+            and not isSellingHay
+            and not needleBusy
+            and not (needleAuto and getNeedle()) then
+
+            pcall(function()
+                local current, maximum, currentText, maxText =
+                    NeedleX.readBag()
+
+                -- Bag empty: nothing to sell, never teleport for it.
+                if current ~= nil and current <= 0 then
+                    return
+                end
+
+                -- Never sell twice within 3 seconds.
+                if os.clock() - NeedleX.lastSell < 3 then
+                    return
+                end
+
                 if current
                     and maximum
                     and maximum > 0
+                    and maximum < 1e9
                     and current >= maximum then
 
                     sellAndReturnHay()
-                else
-                    -- Infinite capacity (shows "inf", a huge number, or no
-                    -- readable maximum): the bag never fills, so sell on
-                    -- a timer instead.
-                    local mt = tostring(maxText or ""):lower()
-                    local ct = tostring(currentText or ""):lower()
+                    return
+                end
 
-                    local infinite =
-                        mt:find("inf", 1, true)
-                        or mt:find("\226\136\158", 1, true)
-                        or ct:find("inf", 1, true)
-                        or ct:find("\226\136\158", 1, true)
-                        or not maximum
-                        or maximum >= 1e9
+                -- Infinite capacity: shows "inf" / a huge number / 0 /
+                -- a negative number / nothing readable. The bag never
+                -- fills, so sell on a timer, but only if there is hay.
+                local mt = tostring(maxText or ""):lower()
+                local ct = tostring(currentText or ""):lower()
 
-                    if infinite
-                        and os.clock() - NeedleX.lastSell
-                            >= NeedleX.sellEvery then
+                local infinite =
+                    mt:find("inf", 1, true)
+                    or mt:find("\226\136\158", 1, true)
+                    or ct:find("inf", 1, true)
+                    or ct:find("\226\136\158", 1, true)
+                    or not maximum
+                    or maximum <= 0
+                    or maximum >= 1e9
 
-                        sellAndReturnHay()
-                    end
+                if infinite
+                    and os.clock() - NeedleX.lastSell
+                        >= NeedleX.sellEvery then
+
+                    sellAndReturnHay()
                 end
             end)
         end
