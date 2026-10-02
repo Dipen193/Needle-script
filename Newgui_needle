@@ -10,7 +10,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- ===== Settings =====
-local TITLE = "KIWIN"
+local TITLE = "KIWIN HUB"
 local SUBTITLE = "https://discord.gg/xXZStK2WZ"
 local CREDIT = "DIPEN"
 
